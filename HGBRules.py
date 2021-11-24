@@ -169,7 +169,6 @@ def make_model(
 
 def get_rules() -> HGBEntity:
     rules = HGBEntity(role=None)
-    rules.add_component(DiceRuleComponent())
     rules.add_component(AttackRuleComponent())
     rules.add_component(AnalysisComponent())
     return rules
@@ -274,8 +273,19 @@ class DiceRuleComponent(Component):
         max_probs = all_probs_high_die(dice=int(dice), sides=6)
 
         if state.get_effects(name=RerollRules.BelowAverage):
-            # TODO
             avg = expected(max_probs)
+            rerolls = [roll for roll in max_probs if roll < avg]
+            new_probs = {
+                roll: prob for roll, prob in max_probs.items() if roll not in rerolls
+            }
+            new_probs.update({reroll: 0.0 for reroll in rerolls})
+
+            for reroll in rerolls:
+                for roll in max_probs:
+                    new_probs[roll] = new_probs[roll] + (
+                        max_probs[reroll] * max_probs[roll]
+                    )
+            max_probs = new_probs
 
         results = set()
         for val, prob in max_probs.items():
@@ -453,6 +463,8 @@ class Scenario:
         self._start_states = start_states
         self._attacker = attacker
         self._defender = defender
+        self._attacker.add_component(DiceRuleComponent())
+        self._defender.add_component(DiceRuleComponent())
         if base_rules is None:
             base_rules = get_rules()
         self._base_rules = base_rules

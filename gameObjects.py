@@ -102,8 +102,8 @@ class Component:
         return frozenset(self._behaviors.keys())
 
     def run(self, msg: Hashable, state: State) -> FrozenSet[State]:
-        if self._behaviors[msg](state) is None:
-            print(f"{self.__class__}, {msg}")
+        # if self._behaviors[msg](state) is None:
+        #     print(f"{self.__class__}, {msg}")
         return self._behaviors[msg](state)
 
 

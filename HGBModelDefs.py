@@ -269,7 +269,7 @@ class RerollComponent(Component):
     def __init__(self, rule: RerollRules) -> None:
         super().__init__()
         self._rule = rule
-        self._behaviors[RollTimeSteps.INITIALIZE] = self._reroll
+        self._behaviors[RollTimeSteps.GATHER_DICE] = self._reroll
 
     def _reroll(self, state: State) -> FrozenSet[State]:
         eff = Effect(name=self._rule, source="Reroll")
