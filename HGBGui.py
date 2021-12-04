@@ -30,7 +30,7 @@ def start_gui():
     )
     with viewport_menu_bar():
         with menu(label="Mode"):
-            add_menu_item(label="Unopposed Roll", callback=unopposed_cb)
+            add_menu_item(label="Independent Roll", callback=unopposed_cb)
             add_menu_item(label="Opposed Roll", callback=opposed_cb)
 
     make_opp_window()
