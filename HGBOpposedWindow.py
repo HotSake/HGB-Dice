@@ -687,14 +687,12 @@ def run_test():
         print(traceback.format_exc())
 
 
-def show_plots(base_tags: Tuple[str], normal_tags: Tuple[str], normal: bool = False):
+def show_plots(show: Tuple[str], hide: Tuple[str]):
     def callback():
-        nonlocal base_tags, normal_tags, normal
-        visible = base_tags if normal else normal_tags
-        hidden = normal_tags if normal else base_tags
-        for tag in visible:
+        nonlocal show, hide
+        for tag in hide:
             hide_item(tag)
-        for tag in hidden:
+        for tag in show:
             show_item(tag)
 
     return callback
@@ -711,6 +709,7 @@ def graph_results(
         horizontal_scrollbar=True,
         pos=(0, 20 + (20 * test_num)),
     ):
+        add_text("Click plots to cycle between analysis types!")
         cols = max(len(res.get("by_source", [])) for res in results) + 1
         with table(
             header_row=False,
@@ -745,14 +744,20 @@ def graph_results(
                         f"WHEN {res['name']} > 0"
                         + f" (Avg: {res['normalized_average']:0.2f})"
                     )
+                min_label = f"{res['name']} AT LEAST X:"
 
                 base_tags = []
                 normal_tags = []
+                min_tags = []
                 with table_row(height=PLOT_HEIGHT + 5):
                     plot_tag = f"plot_{test_num}_{res['name']}"
                     norm_tag = plot_tag + "_norm"
+                    min_tag = plot_tag + "_min"
                     base_tags.append(plot_tag)
                     normal_tags.append(norm_tag)
+                    min_totals = res.get("min_totals", [])
+                    if min_totals:
+                        min_tags.append(min_tag)
                     with table_cell():
                         bar_plot(
                             plot_tag=plot_tag,
@@ -778,13 +783,29 @@ def graph_results(
                             tag_y=f"y_{test_num}_{res['name']}_norm",
                             datatype=datatype,
                         )
+                        if min_totals:
+                            bar_plot(
+                                plot_tag=min_tag,
+                                label=min_label,
+                                height=PLOT_HEIGHT,
+                                width=PLOT_WIDTH,
+                                data_x=[float(k) for k in min_totals.keys()],
+                                data_y=[float(v) for v in min_totals.values()],
+                                tag_x=f"x_{test_num}_{res['name']}_min",
+                                tag_y=f"y_{test_num}_{res['name']}_min",
+                                datatype=datatype,
+                            )
 
                     sources = res.get("by_source", [])
                     for source in sources:
                         plot_tag = f"plot_{test_num}_{res['name']}_{source['name']}"
                         norm_tag = plot_tag + "_norm"
+                        min_tag = plot_tag + "_min"
                         base_tags.append(plot_tag)
                         normal_tags.append(norm_tag)
+                        min_totals = source.get("min_totals", [])
+                        if min_totals:
+                            min_tags.append(min_tag)
                         if datatype == stats.AnalysisType.BOOL:
                             avg = f"{source['average']:0.1%}"
                             norm_label = (
@@ -799,6 +820,10 @@ def graph_results(
                                 + f"\n{res['name']} from {source['name']}"
                                 + f" (Avg: {source['normalized_average']:0.2f})"
                             )
+                        min_label = (
+                            f"{res['name']} AT LEAST X:"
+                            + f"\n{res['name']} from {source['name']}"
+                        )
                         with table_cell():
                             bar_plot(
                                 plot_tag=plot_tag,
@@ -827,21 +852,45 @@ def graph_results(
                                 tag_y=f"y_{test_num}_{res['name']}_{source['name']}_norm",
                                 datatype=datatype,
                             )
+                            if min_totals:
+                                bar_plot(
+                                    plot_tag=min_tag,
+                                    label=min_label,
+                                    height=PLOT_HEIGHT,
+                                    width=PLOT_WIDTH,
+                                    data_x=[float(k) for k in min_totals.keys()],
+                                    data_y=[float(v) for v in min_totals.values()],
+                                    tag_x=f"x_{test_num}_{res['name']}_{source['name']}_min",
+                                    tag_y=f"y_{test_num}_{res['name']}_{source['name']}_min",
+                                    datatype=datatype,
+                                )
 
                 base_handler_tag = f"handler_base_{test_num}_{res['name']}"
                 normal_handler_tag = f"handler_normal_{test_num}_{res['name']}"
+                min_handler_tag = f"handler_min_{test_num}_{res['name']}"
 
                 with item_handler_registry(tag=base_handler_tag):
                     add_item_clicked_handler(
                         callback=show_plots(
-                            tuple(base_tags), tuple(normal_tags), normal=True
+                            tuple(normal_tags), tuple(base_tags + min_tags)
                         )
                     )
 
                 with item_handler_registry(tag=normal_handler_tag):
+                    if min_tags:
+                        show = min_tags
+                        hide = base_tags + normal_tags
+                    else:
+                        show = base_tags
+                        hide = normal_tags
+                    add_item_clicked_handler(
+                        callback=show_plots(tuple(show), tuple(hide))
+                    )
+
+                with item_handler_registry(tag=min_handler_tag):
                     add_item_clicked_handler(
                         callback=show_plots(
-                            tuple(base_tags), tuple(normal_tags), normal=False
+                            tuple(base_tags), tuple(normal_tags + min_tags)
                         )
                     )
 
@@ -849,8 +898,10 @@ def graph_results(
                     bind_item_handler_registry(tag, base_handler_tag)
                 for tag in normal_tags:
                     bind_item_handler_registry(tag, normal_handler_tag)
+                for tag in min_tags:
+                    bind_item_handler_registry(tag, min_handler_tag)
 
-                show_plots(tuple(base_tags), tuple(normal_tags), normal=False)()
+                show_plots(tuple(base_tags), tuple(normal_tags + min_tags))()
 
 
 def bar_plot(

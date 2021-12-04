@@ -8,6 +8,8 @@ from typing import Any, Iterable, Mapping
 from decimal import Decimal, getcontext
 import HGBRules as hgb
 
+getcontext().prec = 12
+
 
 class AnalysisType(Enum):
     BOOL = auto()
@@ -101,6 +103,24 @@ STATUS_ANALYSES = {
 }
 
 
+def make_normals(
+    totals: Mapping[Decimal, Decimal], scale: Decimal = None
+) -> Mapping[Decimal, Decimal]:
+    normalized_totals = {val: prob for val, prob in totals.items() if val > 0}
+    if not scale:
+        total_probs = sum(normalized_totals.values())
+        total_probs = Decimal(1) if total_probs == 0 else total_probs
+        scale = Decimal(1) / total_probs
+    return {val: prob * scale for val, prob in normalized_totals.items()}
+
+
+def make_mins(totals: Mapping[Decimal, Decimal]) -> Mapping[Decimal, Decimal]:
+    return {
+        val: sum(prob for t_val, prob in totals.items() if t_val >= val)
+        for val in totals.keys()
+    }
+
+
 def do_analysis(states: Iterable[State], analysis: Analysis) -> Mapping[str, Any]:
     """Analyze a collection of states for the supplied analysis type"""
     result = dict()
@@ -118,18 +138,12 @@ def do_analysis(states: Iterable[State], analysis: Analysis) -> Mapping[str, Any
         and not analysis.show_if_missing
     ):
         return None
-    result["normalized_totals"] = {
-        val: prob for val, prob in result["totals"].items() if val > 0
-    }
-    total_probs = sum(result["normalized_totals"].values())
-    total_probs = Decimal(1) if total_probs == 0 else total_probs
-    res_scale = Decimal(1) / total_probs
-    result["normalized_totals"] = {
-        val: prob * res_scale for val, prob in result["normalized_totals"].items()
-    }
+    result["normalized_totals"] = make_normals(result["totals"])
     result["normalized_average"] = Decimal(
         sum(val * prob for val, prob in result["normalized_totals"].items())
     )
+    if result["type"] is AnalysisType.RANGE:
+        result["min_totals"] = make_mins(result["totals"])
 
     if analysis.split_by_source:
         effects = chain.from_iterable(
@@ -147,16 +161,18 @@ def do_analysis(states: Iterable[State], analysis: Analysis) -> Mapping[str, Any
             source_res["average"] = sum(
                 prob * val for prob, val in source_res["totals"].items()
             )
-            source_res["normalized_totals"] = {
-                val: prob for val, prob in source_res["totals"].items() if val > 0
-            }
-            source_res["normalized_totals"] = {
-                val: prob * res_scale
-                for val, prob in source_res["normalized_totals"].items()
-            }
+            # Normalize using total scale, not source scale
+            total_probs = sum(result["normalized_totals"].values())
+            total_probs = Decimal(1) if total_probs == 0 else total_probs
+            scale = Decimal(1) / total_probs
+            source_res["normalized_totals"] = make_normals(
+                source_res["totals"], scale=scale
+            )
             source_res["normalized_average"] = sum(
                 val * prob for val, prob in source_res["normalized_totals"].items()
             )
+            if result["type"] is AnalysisType.RANGE:
+                source_res["min_totals"] = make_mins(source_res["totals"])
             by_source.append(source_res)
         result["by_source"] = by_source
 
