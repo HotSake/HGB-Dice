@@ -13,11 +13,10 @@ import traceback
 WINDOW_WIDTH, WINDOW_HEIGHT = 1350, 950
 TRAIT_LIST_WIDTH = 200
 SMALL_INPUT_WIDTH = 50
+LARGE_INPUT_WIDTH = 100
 PLOT_HEIGHT = 450
 PLOT_WIDTH = 425
 OPP_WINDOW = "opp_setup_window"
-
-# TODO Add rerolls
 
 HIDE_TRAITS = []
 
@@ -26,7 +25,8 @@ wpn_traits: List[Dict[str, Any]] = []
 def_traits: List[Dict[str, Any]] = []
 avail_traits: List[str] = []
 selected_traits: List[Dict[str, Any]] = []
-tests: int = 0
+num_tests: int = 0
+tests: Dict[str, Dict] = dict()
 
 modal_window = partial(window, modal=True, no_resize=True, no_move=True, no_close=True)
 
@@ -570,7 +570,10 @@ def make_opp_window():
                         )
 
             with table_row():
-                add_button(tag="btn_run", label="Run", callback=run_test)
+                with group(horizontal=True):
+                    add_text("Name:")
+                    add_input_text(tag="test_name", width=LARGE_INPUT_WIDTH)
+                    add_button(tag="btn_run", label="Run", callback=run_test)
 
         update_test()
 
@@ -678,11 +681,16 @@ def run_test():
         results = [stats.do_analysis(test_outcomes, an) for an in analyses.values()]
         results = [r for r in results if r is not None]
 
-        global tests
-        tests += 1
+        global num_tests, tests
+        num_tests += 1
+        name = get_value("test_name")
+        if not name:
+            name = f"Test {num_tests:g}"
+        set_value("test_name", f"Test {num_tests + 1:g}")
+        tests[name] = results
 
         # print_results(results)
-        graph_results(test_num=tests, results=results, analyses=analyses)
+        graph_results(test_num=num_tests, results=results, analyses=analyses, name=name)
     except Exception:
         print(traceback.format_exc())
 
@@ -698,11 +706,20 @@ def show_plots(show: Tuple[str], hide: Tuple[str]):
     return callback
 
 
+# TODO: Create window outside grapth_results() and feed in
+# TODO: Alter graph_results() args to accept multiple tests
+# TODO: Create and delete series/plots on demand within window
+# TODO: Track tags of secondary series and delete aliases manually until DPG updates
 def graph_results(
-    test_num: int, results: List[Dict], analyses: Dict[str, stats.Analysis]
+    test_num: int,
+    results: List[Dict],
+    analyses: Dict[str, stats.Analysis],
+    name: str = None,
 ):
+    if not name:
+        name = f"Test {test_num:g}"
     with window(
-        label=f"Test {test_num:g}",
+        label=name,
         height=WINDOW_HEIGHT - 20 * test_num,
         width=WINDOW_WIDTH,
         no_scrollbar=False,
@@ -904,6 +921,7 @@ def graph_results(
                 show_plots(tuple(base_tags), tuple(normal_tags + min_tags))()
 
 
+# TODO: Change args to accept multiple series
 def bar_plot(
     plot_tag: str,
     label: str,
