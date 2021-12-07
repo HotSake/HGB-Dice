@@ -1,6 +1,6 @@
 from decimal import Decimal
 from operator import attrgetter
-from typing import Dict
+from typing import Dict, Mapping
 from dearpygui.dearpygui import *
 from functools import partial
 import HGBModelDefs as md
@@ -690,7 +690,19 @@ def run_test():
         tests[name] = results
 
         # print_results(results)
-        graph_results(test_num=num_tests, results=results, analyses=analyses, name=name)
+        window = add_window(
+            label=name,
+            height=WINDOW_HEIGHT - 20 * num_tests,
+            width=WINDOW_WIDTH,
+            no_scrollbar=False,
+            horizontal_scrollbar=True,
+            pos=(0, 20 + (20 * num_tests)),
+        )
+        graph_results(
+            window=window,
+            num_tests=num_tests,
+            results=results,
+        )
     except Exception:
         print(traceback.format_exc())
 
@@ -706,254 +718,183 @@ def show_plots(show: Tuple[str], hide: Tuple[str]):
     return callback
 
 
-# TODO: Create window outside grapth_results() and feed in
 # TODO: Alter graph_results() args to accept multiple tests
 # TODO: Create and delete series/plots on demand within window
-# TODO: Track tags of secondary series and delete aliases manually until DPG updates
+# TODO: Remove all tags and only use IDs
 def graph_results(
-    test_num: int,
+    window: int,
+    num_tests: int,
     results: List[Dict],
-    analyses: Dict[str, stats.Analysis],
-    name: str = None,
 ):
-    if not name:
-        name = f"Test {test_num:g}"
-    with window(
-        label=name,
-        height=WINDOW_HEIGHT - 20 * test_num,
-        width=WINDOW_WIDTH,
-        no_scrollbar=False,
-        horizontal_scrollbar=True,
-        pos=(0, 20 + (20 * test_num)),
+    push_container_stack(window)
+    add_text("Click plots to cycle between analysis types!")
+    # TODO: Add dropdown for comparisons
+    # TODO: Recalc max cols for multiple tests
+    cols = max(len(res.get("by_source", [])) for res in results) + 1
+    with table(
+        header_row=False,
+        resizable=False,
+        policy=mvTable_SizingFixedSame,
+        borders_outerH=False,
+        borders_outerV=False,
+        borders_innerH=False,
+        borders_innerV=True,
+        scrollX=True,
+        scrollY=True,
     ):
-        add_text("Click plots to cycle between analysis types!")
-        cols = max(len(res.get("by_source", [])) for res in results) + 1
-        with table(
-            header_row=False,
-            resizable=False,
-            policy=mvTable_SizingFixedSame,
-            borders_outerH=False,
-            borders_outerV=False,
-            borders_innerH=False,
-            borders_innerV=True,
-            scrollX=True,
-            scrollY=True,
-        ):
-            for _ in range(cols):
-                add_table_column(
-                    width=PLOT_WIDTH + 5,
-                    width_fixed=True,
-                    no_resize=True,
-                    no_reorder=True,
-                    no_sort=True,
+        for _ in range(cols):
+            add_table_column(
+                width=PLOT_WIDTH + 5,
+                width_fixed=True,
+                no_resize=True,
+                no_reorder=True,
+                no_sort=True,
+            )
+        for res in results:
+            base_plots, normal_plots, min_plots = plot_result(res)
+
+            base_handler = add_item_handler_registry()
+            normal_handler = add_item_handler_registry()
+            min_handler = add_item_handler_registry()
+
+            add_item_clicked_handler(
+                parent=base_handler,
+                callback=show_plots(normal_plots, base_plots + min_plots),
+            )
+
+            if min_plots:
+                show = min_plots
+                hide = base_plots + normal_plots
+            else:
+                show = base_plots
+                hide = normal_plots
+            add_item_clicked_handler(
+                parent=normal_handler, callback=show_plots(show, hide)
+            )
+
+            add_item_clicked_handler(
+                parent=min_handler,
+                callback=show_plots(base_plots, normal_plots + min_plots),
+            )
+
+            for plot in base_plots:
+                bind_item_handler_registry(plot, base_handler)
+            for plot in normal_plots:
+                bind_item_handler_registry(plot, normal_handler)
+            for plot in min_plots:
+                bind_item_handler_registry(plot, min_handler)
+
+            show_plots(base_plots, normal_plots + min_plots)()
+    pop_container_stack()
+
+
+def plot_result(res: Mapping[str, Any]) -> Tuple[Tuple[int]]:
+    if res["type"] == stats.AnalysisType.BOOL:
+        avg = f"{res['average']:0.1%}"
+        normal_label = (
+            f"WHEN {res['name']} is True" + f" (Avg: {res['normalized_average']:0.1%})"
+        )
+    else:
+        avg = f"{res['average']:0.2f}"
+        normal_label = (
+            f"WHEN {res['name']} > 0" + f" (Avg: {res['normalized_average']:0.2f})"
+        )
+    base_label = f"{res['name']} (Avg: {avg})"
+    min_label = f"{res['name']} AT LEAST X:"
+    groups = []
+
+    with table_row(height=PLOT_HEIGHT + 5):
+        groups.append(make_plot_group(res, (base_label, normal_label, min_label)))
+        sources = res.get("by_source", [])
+        for source in sources:
+            if res["type"] == stats.AnalysisType.BOOL:
+                avg = f"{source['average']:0.1%}"
+                normal_label = (
+                    f"WHEN {res['name']} is True:"
+                    + f"\n{res['name']} from {source['name']}"
+                    + f" (Avg: {source['normalized_average']:0.1%})"
                 )
-            for res in results:
-                datatype = analyses[res["name"]].datatype
-                if datatype == stats.AnalysisType.BOOL:
-                    avg = f"{res['average']:0.1%}"
-                    norm_label = (
-                        f"WHEN {res['name']} is True"
-                        + f" (Avg: {res['normalized_average']:0.1%})"
-                    )
-                else:
-                    avg = f"{res['average']:0.2f}"
-                    norm_label = (
-                        f"WHEN {res['name']} > 0"
-                        + f" (Avg: {res['normalized_average']:0.2f})"
-                    )
-                min_label = f"{res['name']} AT LEAST X:"
+            else:
+                avg = f"{source['average']:0.2f}"
+                normal_label = (
+                    f"WHEN {res['name']} > 0:"
+                    + f"\n{res['name']} from {source['name']}"
+                    + f" (Avg: {source['normalized_average']:0.2f})"
+                )
+            min_label = (
+                f"{res['name']} AT LEAST X:" + f"\n{res['name']} from {source['name']}"
+            )
+            base_label = f"{res['name']} from {source['name']} (Avg: {avg})"
+            groups.append(
+                make_plot_group(source, (base_label, normal_label, min_label))
+            )
+    # transpose and return list of groups
+    return tuple(tuple(p for p in g if p is not None) for g in zip(*groups))
 
-                base_tags = []
-                normal_tags = []
-                min_tags = []
-                with table_row(height=PLOT_HEIGHT + 5):
-                    plot_tag = f"plot_{test_num}_{res['name']}"
-                    norm_tag = plot_tag + "_norm"
-                    min_tag = plot_tag + "_min"
-                    base_tags.append(plot_tag)
-                    normal_tags.append(norm_tag)
-                    min_totals = res.get("min_totals", [])
-                    if min_totals:
-                        min_tags.append(min_tag)
-                    with table_cell():
-                        bar_plot(
-                            plot_tag=plot_tag,
-                            label=f"{res['name']} (Avg: {avg})",
-                            height=PLOT_HEIGHT,
-                            width=PLOT_WIDTH,
-                            data_x=[float(k) for k in res["totals"].keys()],
-                            data_y=[float(v) for v in res["totals"].values()],
-                            tag_x=f"x_{test_num}_{res['name']}",
-                            tag_y=f"y_{test_num}_{res['name']}",
-                            datatype=datatype,
-                        )
-                        bar_plot(
-                            plot_tag=norm_tag,
-                            label=norm_label,
-                            height=PLOT_HEIGHT,
-                            width=PLOT_WIDTH,
-                            data_x=[float(k) for k in res["normalized_totals"].keys()],
-                            data_y=[
-                                float(v) for v in res["normalized_totals"].values()
-                            ],
-                            tag_x=f"x_{test_num}_{res['name']}_norm",
-                            tag_y=f"y_{test_num}_{res['name']}_norm",
-                            datatype=datatype,
-                        )
-                        if min_totals:
-                            bar_plot(
-                                plot_tag=min_tag,
-                                label=min_label,
-                                height=PLOT_HEIGHT,
-                                width=PLOT_WIDTH,
-                                data_x=[float(k) for k in min_totals.keys()],
-                                data_y=[float(v) for v in min_totals.values()],
-                                tag_x=f"x_{test_num}_{res['name']}_min",
-                                tag_y=f"y_{test_num}_{res['name']}_min",
-                                datatype=datatype,
-                            )
 
-                    sources = res.get("by_source", [])
-                    for source in sources:
-                        plot_tag = f"plot_{test_num}_{res['name']}_{source['name']}"
-                        norm_tag = plot_tag + "_norm"
-                        min_tag = plot_tag + "_min"
-                        base_tags.append(plot_tag)
-                        normal_tags.append(norm_tag)
-                        min_totals = source.get("min_totals", [])
-                        if min_totals:
-                            min_tags.append(min_tag)
-                        if datatype == stats.AnalysisType.BOOL:
-                            avg = f"{source['average']:0.1%}"
-                            norm_label = (
-                                f"WHEN {res['name']} is True:"
-                                + f"\n{res['name']} from {source['name']}"
-                                + f" (Avg: {source['normalized_average']:0.1%})"
-                            )
-                        else:
-                            avg = f"{source['average']:0.2f}"
-                            norm_label = (
-                                f"WHEN {res['name']} > 0:"
-                                + f"\n{res['name']} from {source['name']}"
-                                + f" (Avg: {source['normalized_average']:0.2f})"
-                            )
-                        min_label = (
-                            f"{res['name']} AT LEAST X:"
-                            + f"\n{res['name']} from {source['name']}"
-                        )
-                        with table_cell():
-                            bar_plot(
-                                plot_tag=plot_tag,
-                                label=f"{res['name']} from {source['name']} (Avg: {avg})",
-                                height=PLOT_HEIGHT,
-                                width=PLOT_WIDTH,
-                                data_x=[float(k) for k in source["totals"].keys()],
-                                data_y=[float(v) for v in source["totals"].values()],
-                                tag_x=f"x_{test_num}_{res['name']}_{source['name']}",
-                                tag_y=f"y_{test_num}_{res['name']}_{source['name']}",
-                                datatype=datatype,
-                            )
-                            bar_plot(
-                                plot_tag=norm_tag,
-                                label=norm_label,
-                                height=PLOT_HEIGHT,
-                                width=PLOT_WIDTH,
-                                data_x=[
-                                    float(k) for k in source["normalized_totals"].keys()
-                                ],
-                                data_y=[
-                                    float(v)
-                                    for v in source["normalized_totals"].values()
-                                ],
-                                tag_x=f"x_{test_num}_{res['name']}_{source['name']}_norm",
-                                tag_y=f"y_{test_num}_{res['name']}_{source['name']}_norm",
-                                datatype=datatype,
-                            )
-                            if min_totals:
-                                bar_plot(
-                                    plot_tag=min_tag,
-                                    label=min_label,
-                                    height=PLOT_HEIGHT,
-                                    width=PLOT_WIDTH,
-                                    data_x=[float(k) for k in min_totals.keys()],
-                                    data_y=[float(v) for v in min_totals.values()],
-                                    tag_x=f"x_{test_num}_{res['name']}_{source['name']}_min",
-                                    tag_y=f"y_{test_num}_{res['name']}_{source['name']}_min",
-                                    datatype=datatype,
-                                )
+def make_plot_group(res, labels: Tuple[str]) -> Tuple[int]:
+    base_label, normal_label, min_label = labels
+    with table_cell():
+        base_plot = bar_plot(
+            label=base_label,
+            height=PLOT_HEIGHT,
+            width=PLOT_WIDTH,
+            data_x=[float(k) for k in res["totals"].keys()],
+            data_y=[float(v) for v in res["totals"].values()],
+            datatype=res["type"],
+        )
+        normal_plot = bar_plot(
+            label=normal_label,
+            height=PLOT_HEIGHT,
+            width=PLOT_WIDTH,
+            data_x=[float(k) for k in res["normalized_totals"].keys()],
+            data_y=[float(v) for v in res["normalized_totals"].values()],
+            datatype=res["type"],
+        )
+        min_plot = None
+        if res.get("min_totals", None):
+            min_plot = bar_plot(
+                label=min_label,
+                height=PLOT_HEIGHT,
+                width=PLOT_WIDTH,
+                data_x=[float(k) for k in res["min_totals"].keys()],
+                data_y=[float(v) for v in res["min_totals"].values()],
+                datatype=res["type"],
+            )
 
-                base_handler_tag = f"handler_base_{test_num}_{res['name']}"
-                normal_handler_tag = f"handler_normal_{test_num}_{res['name']}"
-                min_handler_tag = f"handler_min_{test_num}_{res['name']}"
-
-                with item_handler_registry(tag=base_handler_tag):
-                    add_item_clicked_handler(
-                        callback=show_plots(
-                            tuple(normal_tags), tuple(base_tags + min_tags)
-                        )
-                    )
-
-                with item_handler_registry(tag=normal_handler_tag):
-                    if min_tags:
-                        show = min_tags
-                        hide = base_tags + normal_tags
-                    else:
-                        show = base_tags
-                        hide = normal_tags
-                    add_item_clicked_handler(
-                        callback=show_plots(tuple(show), tuple(hide))
-                    )
-
-                with item_handler_registry(tag=min_handler_tag):
-                    add_item_clicked_handler(
-                        callback=show_plots(
-                            tuple(base_tags), tuple(normal_tags + min_tags)
-                        )
-                    )
-
-                for tag in base_tags:
-                    bind_item_handler_registry(tag, base_handler_tag)
-                for tag in normal_tags:
-                    bind_item_handler_registry(tag, normal_handler_tag)
-                for tag in min_tags:
-                    bind_item_handler_registry(tag, min_handler_tag)
-
-                show_plots(tuple(base_tags), tuple(normal_tags + min_tags))()
+    return (base_plot, normal_plot, min_plot)
 
 
 # TODO: Change args to accept multiple series
 def bar_plot(
-    plot_tag: str,
     label: str,
     height: int,
     width: int,
     data_x: List[float],
     data_y: List[float],
-    tag_x: str,
-    tag_y: str,
     datatype: stats.AnalysisType,
-):
-    with plot(
-        tag=plot_tag,
+) -> int:
+    plot = add_plot(
         label=label,
         height=height,
         width=width,
         no_mouse_pos=True,
-    ):
-        add_plot_axis(parent=plot_tag, axis=mvXAxis, tag=tag_x)
-        if datatype == stats.AnalysisType.BOOL:
-            set_axis_ticks(tag_x, (("No", 0), ("Yes", 1)))
-        elif datatype == stats.AnalysisType.RANGE:
-            labels = [str(int(x)) for x in data_x]
-            set_axis_ticks(tag_x, tuple(zip(labels, data_x)))
-        y_label = "Probability %"
-        add_plot_axis(parent=plot_tag, axis=mvYAxis, label=y_label, tag=tag_y)
-        labels = [f"{y:0.2%}" for y in data_y]
-        set_axis_ticks(tag_y, tuple(zip(labels, data_y)))
-        add_bar_series(data_x, data_y, parent=tag_y, weight=0.8)
-        set_axis_limits(tag_x, ymin=min(data_x) - 0.8, ymax=max(data_x) + 0.8)
-        set_axis_limits(tag_y, ymin=0.0, ymax=max(data_y) * 1.1)
-        bind_item_theme(plot_tag, "plot_theme")
+    )
+    x_axis = add_plot_axis(parent=plot, axis=mvXAxis)
+    if datatype == stats.AnalysisType.BOOL:
+        set_axis_ticks(x_axis, (("No", 0), ("Yes", 1)))
+    elif datatype == stats.AnalysisType.RANGE:
+        labels = [str(int(x)) for x in data_x]
+        set_axis_ticks(x_axis, tuple(zip(labels, data_x)))
+    y_label = "Probability %"
+    y_axis = add_plot_axis(parent=plot, axis=mvYAxis, label=y_label)
+    labels = [f"{y:0.2%}" for y in data_y]
+    set_axis_ticks(y_axis, tuple(zip(labels, data_y)))
+    add_bar_series(data_x, data_y, parent=y_axis, weight=0.8)
+    set_axis_limits(x_axis, ymin=min(data_x) - 0.8, ymax=max(data_x) + 0.8)
+    set_axis_limits(y_axis, ymin=0.0, ymax=max(data_y) * 1.1)
+    bind_item_theme(plot, "plot_theme")
+    return plot
 
 
 def print_results(results: List[Dict]):

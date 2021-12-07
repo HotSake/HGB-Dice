@@ -138,7 +138,11 @@ def do_analysis(states: Iterable[State], analysis: Analysis) -> Mapping[str, Any
         and not analysis.show_if_missing
     ):
         return None
-    result["normalized_totals"] = make_normals(result["totals"])
+    normalized_totals = {val: prob for val, prob in result["totals"].items() if val > 0}
+    total_probs = sum(normalized_totals.values())
+    total_probs = Decimal(1) if total_probs == 0 else total_probs
+    scale = Decimal(1) / total_probs
+    result["normalized_totals"] = make_normals(result["totals"], scale=scale)
     result["normalized_average"] = Decimal(
         sum(val * prob for val, prob in result["normalized_totals"].items())
     )
@@ -157,21 +161,19 @@ def do_analysis(states: Iterable[State], analysis: Analysis) -> Mapping[str, Any
                 "totals": group(
                     hgb.effect_value_key(source=source, **analysis.effect_params)
                 ),
+                "type": result["type"],
             }
             source_res["average"] = sum(
                 prob * val for prob, val in source_res["totals"].items()
             )
             # Normalize using total scale, not source scale
-            total_probs = sum(result["normalized_totals"].values())
-            total_probs = Decimal(1) if total_probs == 0 else total_probs
-            scale = Decimal(1) / total_probs
             source_res["normalized_totals"] = make_normals(
                 source_res["totals"], scale=scale
             )
             source_res["normalized_average"] = sum(
                 val * prob for val, prob in source_res["normalized_totals"].items()
             )
-            if result["type"] is AnalysisType.RANGE:
+            if source_res["type"] is AnalysisType.RANGE:
                 source_res["min_totals"] = make_mins(source_res["totals"])
             by_source.append(source_res)
         result["by_source"] = by_source
