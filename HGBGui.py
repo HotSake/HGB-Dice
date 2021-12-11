@@ -39,7 +39,7 @@ def start_gui():
 
     setup_dearpygui()
     show_viewport()
-    show_item_registry()
+    # show_item_registry()
     # show_style_editor()
     # show_documentation()
     start_dearpygui()

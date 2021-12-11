@@ -1,3 +1,4 @@
+from decimal import Decimal, DecimalException
 from itertools import chain
 from typing import Dict
 from dearpygui.dearpygui import *
@@ -74,9 +75,19 @@ def graph_results(
             normal_handler = add_item_handler_registry()
             min_handler = add_item_handler_registry()
 
+            if normal_plots:
+                show = normal_plots
+                hide = base_plots + min_plots
+            elif min_plots:
+                show = min_plots
+                hide = base_plots + min_plots
+            else:
+                show = base_plots
+                hide = tuple()
+
             add_item_clicked_handler(
                 parent=base_handler,
-                callback=show_plots(normal_plots, base_plots + min_plots),
+                callback=show_plots(show, hide),
             )
 
             if min_plots:
@@ -109,45 +120,56 @@ def graph_results(
 def plot_result(
     results: List[Dict[str, Any]], test_names: List[str]
 ) -> Tuple[Tuple[int]]:
-    if results[0]["type"] == stats.AnalysisType.BOOL:
-        normal_label = f"WHEN {results[0]['name']} is True"
-    else:
-        normal_label = f"WHEN {results[0]['name']} > 0"
     base_label = f"{results[0]['name']}"
+    normal_label = f"WHEN {results[0]['name']} > 0"
     min_label = f"{results[0]['name']} AT LEAST X:"
     groups = []
     with table_row(height=PLOT_HEIGHT + 5):
         groups.append(
             make_plot_group(results, (base_label, normal_label, min_label), test_names)
         )
-        # TODO: Handle sources
-        return tuple(tuple(p for p in g if p is not None) for g in zip(*groups))
-        sources = results.get("by_source", [])
-        for source in sources:
-            if results["type"] == stats.AnalysisType.BOOL:
-                avg = f"{source['average']:0.1%}"
-                normal_label = (
-                    f"WHEN {results['name']} is True:"
-                    + f"\n{results['name']} from {source['name']}"
-                    + f" (Avg: {source['normalized_average']:0.1%})"
-                )
-            else:
-                avg = f"{source['average']:0.2f}"
-                normal_label = (
-                    f"WHEN {results['name']} > 0:"
-                    + f"\n{results['name']} from {source['name']}"
-                    + f" (Avg: {source['normalized_average']:0.2f})"
-                )
+        sources = [result.get("by_source", []) for result in results]
+        source_names = [source["name"] for source in chain.from_iterable(sources)]
+        source_names = list(dict.fromkeys(source_names))  # Deduplicate sources
+
+        for source_name in source_names:
+            sources = [get_source_result(result, source_name) for result in results]
+            base_label = f"{results[0]['name']} from {source_name}"
+            normal_label = (
+                f"WHEN {results[0]['name']} > 0:"
+                + f"\n{results[0]['name']} from {source_name}"
+            )
             min_label = (
-                f"{results['name']} AT LEAST X:"
-                + f"\n{results['name']} from {source['name']}"
+                f"{results[0]['name']} AT LEAST X:"
+                + f"\n{results[0]['name']} from {source_name}"
             )
-            base_label = f"{results['name']} from {source['name']} (Avg: {avg})"
             groups.append(
-                make_plot_group(source, (base_label, normal_label, min_label))
+                make_plot_group(
+                    sources, (base_label, normal_label, min_label), test_names
+                )
             )
+            if source_name == "Haywire":
+                print(results[0]["name"])
+                print("\n".join(str(source) for source in sources))
+                print(groups[-1])
     # transpose and return list of groups
     return tuple(tuple(p for p in g if p is not None) for g in zip(*groups))
+
+
+def get_source_result(result: Dict[str, Any], name: str) -> Dict[str, Any]:
+    sources = result.get("by_source", [])
+    for source in sources:
+        if source["name"] == name:
+            return source
+    return {
+        "name": name,
+        "type": result["type"],
+        "totals": dict(),
+        "normalized_totals": dict(),
+        "min_totals": {Decimal(0): Decimal(1)},
+        "average": Decimal(0),
+        "normalized_average": Decimal(0),
+    }
 
 
 def make_plot_group(
@@ -164,34 +186,40 @@ def make_plot_group(
             names=test_names,
             datatype=results[0]["type"],
         )
-        normal_plot = bar_plot(
-            label=normal_label,
-            height=PLOT_HEIGHT,
-            width=PLOT_WIDTH,
-            data_x=[
-                [float(k) for k in res["normalized_totals"].keys()] for res in results
-            ],
-            data_y=[
-                [float(v) for v in res["normalized_totals"].values()] for res in results
-            ],
-            names=test_names,
-            datatype=results[0]["type"],
-        )
+        normal_plot = None
         min_plot = None
-        if results[0].get("min_totals", None):
-            min_plot = bar_plot(
-                label=min_label,
+        if results[0]["type"] == stats.AnalysisType.RANGE:
+            normal_plot = bar_plot(
+                label=normal_label,
                 height=PLOT_HEIGHT,
                 width=PLOT_WIDTH,
                 data_x=[
-                    [float(k) for k in res["min_totals"].keys()] for res in results
+                    [float(k) for k in res["normalized_totals"].keys()]
+                    for res in results
                 ],
                 data_y=[
-                    [float(v) for v in res["min_totals"].values()] for res in results
+                    [float(v) for v in res["normalized_totals"].values()]
+                    for res in results
                 ],
                 names=test_names,
                 datatype=results[0]["type"],
             )
+
+            if results[0].get("min_totals", None):
+                min_plot = bar_plot(
+                    label=min_label,
+                    height=PLOT_HEIGHT,
+                    width=PLOT_WIDTH,
+                    data_x=[
+                        [float(k) for k in res["min_totals"].keys()] for res in results
+                    ],
+                    data_y=[
+                        [float(v) for v in res["min_totals"].values()]
+                        for res in results
+                    ],
+                    names=test_names,
+                    datatype=results[0]["type"],
+                )
 
     return (base_plot, normal_plot, min_plot)
 
@@ -212,6 +240,9 @@ def bar_plot(
         no_mouse_pos=True,
     )
     add_plot_legend(parent=plot)
+    # Dummy missing data
+    data_x = [x if x else [] for x in data_x]
+    data_y = [y if y else [] for y in data_y]
 
     x_min = min(chain.from_iterable(data_x)) - 0.8
     x_max = max(chain.from_iterable(data_x)) + 0.8
@@ -232,14 +263,15 @@ def bar_plot(
         weight = BAR_WIDTH / len(data_y)
         left = (len(data_y) - 1) * -(weight / 2)
         offset = left + (idx * weight)
-        # Dummy missing data
-        if not series_x:
-            series_x = [0.0]
-            series_y = [1.0]
+        avg = sum(x * y for x, y in zip(series_x, series_y))
+        if datatype == stats.AnalysisType.BOOL:
+            avg_label = f"{avg:0.1%}"
+        else:
+            avg_label = f"{avg:0.2f}"
         add_bar_series(
             [x + offset for x in series_x],
             series_y,
-            label=name,
+            label=f"{name} (Avg: {avg_label})",
             parent=y_axis,
             weight=weight,
         )
