@@ -102,6 +102,8 @@ STATUS_ANALYSES = {
     ),
 }
 
+analyses = {**BASIC_ANALYSES, **STATUS_ANALYSES}
+
 
 def make_normals(
     totals: Mapping[Decimal, Decimal], scale: Decimal = None
@@ -132,14 +134,8 @@ def do_analysis(states: Iterable[State], analysis: Analysis) -> Mapping[str, Any
     result["average"] = Decimal(
         sum(prob * val for prob, val in result["totals"].items())
     )
-    if (
-        len(result["totals"]) == 1
-        and result["average"] == 0
-        and not analysis.show_if_missing
-    ):
-        return None
-    normalized_totals = {val: prob for val, prob in result["totals"].items() if val > 0}
-    total_probs = sum(normalized_totals.values())
+    success_probs = {val: prob for val, prob in result["totals"].items() if val > 0}
+    total_probs = sum(success_probs.values())
     total_probs = Decimal(1) if total_probs == 0 else total_probs
     scale = Decimal(1) / total_probs
     result["normalized_totals"] = make_normals(result["totals"], scale=scale)
