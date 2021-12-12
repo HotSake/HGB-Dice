@@ -1,4 +1,5 @@
 from __future__ import annotations
+from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from functools import partial
@@ -40,11 +41,26 @@ class SourceResult:
     min_totals: PDF = field(default_factory=dict)
 
 
+class DefaultSourceDict(dict):
+    def __init__(self, type: AnalysisType):
+        self._type = type
+        super().__init__()
+
+    def __missing__(self, key: str) -> SourceResult:
+        self[key] = value = SourceResult(
+            key,
+            self._type,
+        )
+        return value
+
+
 @dataclass
 class Result:
     name: str
     type: AnalysisType
-    sources: List[SourceResult] = field(default_factory=list)
+
+    def __post_init__(self):  # Use post_init to initialize from other fields
+        self.sources = DefaultSourceDict(self.type)
 
 
 BASIC_ANALYSES = {
@@ -144,55 +160,57 @@ def make_mins(totals: Mapping[Decimal, Decimal]) -> Mapping[Decimal, Decimal]:
     }
 
 
-def do_analysis(states: Iterable[State], analysis: Analysis) -> Mapping[str, Any]:
+def do_analysis(states: Iterable[State], analysis: Analysis) -> Result:
     """Analyze a collection of states for the supplied analysis type"""
-    result = dict()
+    res = Result(analysis.name, analysis.datatype)
     group = partial(hgb.group_states, states)
-    result["name"] = analysis.name
-    result["type"] = analysis.datatype
-    base_group = group(hgb.effect_value_key(**analysis.effect_params))
-    result["totals"] = base_group
-    result["average"] = Decimal(
-        sum(prob * val for prob, val in result["totals"].items())
+    totals = group(hgb.effect_value_key(**analysis.effect_params))
+    average = Decimal(sum(val * prob for val, prob in totals.items()))
+    success_probs = sum(prob for val, prob in totals.items() if val > 0)
+    success_probs = Decimal(1) if success_probs == 0 else success_probs
+    scale = Decimal(1) / success_probs
+    normalized_totals = make_normals(totals, scale=scale)
+    normalized_average = Decimal(
+        sum(val * prob for val, prob in normalized_totals.items())
     )
-    success_probs = {val: prob for val, prob in result["totals"].items() if val > 0}
-    total_probs = sum(success_probs.values())
-    total_probs = Decimal(1) if total_probs == 0 else total_probs
-    scale = Decimal(1) / total_probs
-    result["normalized_totals"] = make_normals(result["totals"], scale=scale)
-    result["normalized_average"] = Decimal(
-        sum(val * prob for val, prob in result["normalized_totals"].items())
+    all_res = SourceResult(
+        "All",
+        analysis.datatype,
+        totals,
+        average,
+        normalized_totals,
+        normalized_average,
     )
-    if result["type"] is AnalysisType.RANGE:
-        result["min_totals"] = make_mins(result["totals"])
+    if analysis.datatype is AnalysisType.RANGE:
+        all_res.min_totals = make_mins(totals)
+
+    res.sources["All"] = all_res
 
     if analysis.split_by_source:
         effects = chain.from_iterable(
             state.get_effects(**analysis.effect_params) for state in states
         )
         sources = {eff.source for eff in effects}
-        by_source = []
-        for source in sources:
-            source_res = {
-                "name": source,
-                "totals": group(
-                    hgb.effect_value_key(source=source, **analysis.effect_params)
-                ),
-                "type": result["type"],
-            }
-            source_res["average"] = sum(
-                prob * val for prob, val in source_res["totals"].items()
-            )
-            # Normalize using total scale, not source scale
-            source_res["normalized_totals"] = make_normals(
-                source_res["totals"], scale=scale
-            )
-            source_res["normalized_average"] = sum(
-                val * prob for val, prob in source_res["normalized_totals"].items()
-            )
-            if source_res["type"] is AnalysisType.RANGE:
-                source_res["min_totals"] = make_mins(source_res["totals"])
-            by_source.append(source_res)
-        result["by_source"] = by_source
 
-    return result
+        for source in sources:
+            totals = group(
+                hgb.effect_value_key(source=source, **analysis.effect_params)
+            )
+            average = sum(prob * val for prob, val in totals.items())
+            # Normalize using total scale, not source scale
+            normalized_totals = make_normals(totals, scale=scale)
+            normalized_average = sum(
+                val * prob for val, prob in normalized_totals.items()
+            )
+            source_res = SourceResult(
+                source,
+                analysis.datatype,
+                totals,
+                average,
+                normalized_totals,
+                normalized_average,
+            )
+            if analysis.datatype is AnalysisType.RANGE:
+                source_res.min_totals = make_mins(totals)
+            res.sources[source] = source_res
+    return res

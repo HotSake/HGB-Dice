@@ -1,6 +1,6 @@
 from decimal import Decimal
 from operator import attrgetter
-from typing import Dict
+from typing import Dict, Mapping
 from dearpygui.dearpygui import *
 from functools import partial
 import HGBModelDefs as md
@@ -25,8 +25,8 @@ def_traits: List[Dict[str, Any]] = []
 avail_traits: List[str] = []
 selected_traits: List[Dict[str, Any]] = []
 num_tests: int = 0
-tests: Dict[str, Dict] = dict()
-
+test = Mapping[str, stats.Result]
+tests: Dict[str, test] = dict()
 modal_window = partial(window, modal=True, no_resize=True, no_move=True, no_close=True)
 
 
@@ -669,19 +669,20 @@ def run_test():
     try:
         test_outcomes = list(sorted(make_scenario().evaluate(), key=attrgetter("prob")))
 
-        results = {
-            k: stats.do_analysis(test_outcomes, v) for k, v in stats.analyses.items()
+        test = {
+            name: stats.do_analysis(test_outcomes, analysis)
+            for name, analysis in stats.analyses.items()
         }
         global num_tests, tests
         num_tests += 1
-        name = get_value("test_name")
-        if not name:
-            name = f"Test {num_tests:g}"
+        test_name = get_value("test_name")
+        if not test_name:
+            test_name = f"Test {num_tests:g}"
         set_value("test_name", f"Test {num_tests + 1:g}")
-        tests[name] = results
+        tests[test_name] = test
 
         window = add_window(
-            label=name,
+            label=test_name,
             height=WINDOW_HEIGHT - 20 * num_tests,
             width=WINDOW_WIDTH,
             no_scrollbar=False,
@@ -691,8 +692,7 @@ def run_test():
         last_3 = list(tests)[-3:]
         graph_results(
             window=window,
-            tests=[tests[x] for x in last_3],
-            test_names=last_3,
+            tests={test_name: tests[test_name] for test_name in last_3},
         )
     except Exception:
         print(traceback.format_exc())
