@@ -160,6 +160,7 @@ def make_mins(totals: Mapping[Decimal, Decimal]) -> Mapping[Decimal, Decimal]:
     }
 
 
+# TODO: Figure out why (no agile -> agile) is showing identical results sometimes
 def do_analysis(states: Iterable[State], analysis: Analysis) -> Result:
     """Analyze a collection of states for the supplied analysis type"""
     res = Result(analysis.name, analysis.datatype)
