@@ -1,10 +1,10 @@
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
 from functools import partial
 from gameObjects import State
 from itertools import chain
-from typing import Any, Iterable, Mapping
+from typing import Any, Dict, Iterable, List, Mapping
 from decimal import Decimal, getcontext
 import HGBRules as hgb
 
@@ -24,6 +24,27 @@ class Analysis:
     effect_params: Mapping
     split_by_source: bool = False
     show_if_missing: bool = False
+
+
+PDF = Mapping[Decimal, Decimal]
+
+
+@dataclass
+class SourceResult:
+    source: str
+    type: AnalysisType
+    totals: PDF = field(default_factory=dict)
+    average: Decimal = Decimal(0)
+    normalized_totals: PDF = field(default_factory=dict)
+    normalized_average: Decimal = Decimal(0)
+    min_totals: PDF = field(default_factory=dict)
+
+
+@dataclass
+class Result:
+    name: str
+    type: AnalysisType
+    sources: List[SourceResult] = field(default_factory=list)
 
 
 BASIC_ANALYSES = {
@@ -59,7 +80,7 @@ BASIC_ANALYSES = {
     ),
     "Denied": Analysis(
         name="Denied",
-        description="Total damage prevented",
+        description="Damage prevented by traits",
         datatype=AnalysisType.RANGE,
         effect_params={"name": hgb.AnalysisEffects.DamageDenied},
         split_by_source=True,
