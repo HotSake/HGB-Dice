@@ -3,10 +3,8 @@ from itertools import chain
 from typing import Dict, Mapping
 from dearpygui.dearpygui import *
 import HGBDiceStats as stats
+from HGBGuiConstants import *
 
-PLOT_HEIGHT = 450
-PLOT_WIDTH = 425
-BAR_WIDTH = 0.8
 
 test = Mapping[str, stats.Result]
 
@@ -32,14 +30,31 @@ def skip_plot(result: stats.Result) -> bool:
     )
 
 
-# TODO: Create and delete series/plots on demand within window
-def graph_results(window: int, tests: Mapping[str, test]):
+def graph_results(window: int, all_tests: Mapping[str, test], selected: List[str]):
     push_container_stack(window)
+    delete_item(window, children_only=True)
+    add_text("Choose up to three tests to display:")
+    test_combos = [
+        add_combo(items=[""] + list(all_tests), width=TRAIT_LIST_WIDTH)
+        for _ in range(3)
+    ]
+    for idx, name in enumerate(selected[:3]):
+        set_value(test_combos[idx], name)
+
+    def test_combo_cb():
+        nonlocal test_combos, window, all_tests
+        new_selected = [x for x in [get_value(combo) for combo in test_combos] if x]
+        graph_results(window, all_tests, new_selected)
+
+    for combo in test_combos:
+        set_item_callback(combo, test_combo_cb)
+
     add_text("Click plots to cycle between analysis types!")
-    # TODO: Add dropdown for comparisons
-    # TODO: Recalc max cols for multiple tests
-    # cols = max(len(res.get("by_source", [])) for res in test) + 1
-    cols = 7  # TODO: See if this is even necessary
+    tests = {name: all_tests[name] for name in selected}
+    cols = max(
+        len(res.sources)
+        for res in chain.from_iterable(test.values() for test in tests.values())
+    )
     with table(
         header_row=False,
         resizable=False,
@@ -111,6 +126,7 @@ def graph_results(window: int, tests: Mapping[str, test]):
                 hide_item(plot)
 
     pop_container_stack()
+    show_item(window)
 
 
 def plot_result(tests: Mapping[str, test], analysis: str) -> Tuple[Tuple[int]]:
@@ -134,8 +150,12 @@ def plot_result(tests: Mapping[str, test], analysis: str) -> Tuple[Tuple[int]]:
                 for name, test in tests.items()
             }
             base_label = f"{analysis} from {source_name}"
-            normal_label = f"WHEN {analysis} > 0:" + f"\n{analysis} from {source_name}"
-            min_label = f"{analysis} AT LEAST X:" + f"\n{analysis} from {source_name}"
+            normal_label = (
+                f"WHEN {analysis} > 0:" + f"\n{analysis} from source: {source_name}"
+            )
+            min_label = (
+                f"{analysis} AT LEAST X:" + f"\n{analysis} from source: {source_name}"
+            )
             groups.append(
                 make_plot_group(results, (base_label, normal_label, min_label))
             )

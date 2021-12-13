@@ -86,7 +86,7 @@ class Result:
     name: str
     type: AnalysisType
 
-    def __post_init__(self):  # Use post_init to initialize from other fields
+    def __post_init__(self):  # Use post_init to initialize default source type
         self.sources = DefaultSourceDict(self.type)
 
     def __str__(self) -> str:
@@ -193,7 +193,6 @@ def make_mins(totals: Mapping[Decimal, Decimal]) -> Mapping[Decimal, Decimal]:
     }
 
 
-# TODO: Figure out why (no agile -> agile) is showing identical results sometimes
 def do_analysis(states: Iterable[State], analysis: Analysis) -> Result:
     """Analyze a collection of states for the supplied analysis type"""
     res = Result(analysis.name, analysis.datatype)

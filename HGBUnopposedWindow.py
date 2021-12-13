@@ -8,18 +8,13 @@ from diceProbs import (
     expected,
     standard_dev,
 )
-
-WINDOW_WIDTH, WINDOW_HEIGHT = 1350, 950
-SMALL_INPUT_WIDTH = 50
-PLOT_HEIGHT = 425
-PLOT_WIDTH = 425
-UNOPP_WINDOW = "unopp_setup_window"
+from HGBGuiConstants import *
 
 
 def make_unopp_window():
     with window(
         label="Roll Statistics",
-        tag=UNOPP_WINDOW,
+        tag=UNOPP_SETUP_WINDOW,
         height=WINDOW_HEIGHT,
         width=WINDOW_WIDTH,
     ):

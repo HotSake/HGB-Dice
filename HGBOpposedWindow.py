@@ -10,14 +10,8 @@ from ResultPlots import graph_results
 from itertools import chain
 import HGBDiceStats as stats
 import traceback
+from HGBGuiConstants import *
 
-WINDOW_WIDTH, WINDOW_HEIGHT = 1350, 950
-TRAIT_LIST_WIDTH = 200
-SMALL_INPUT_WIDTH = 50
-LARGE_INPUT_WIDTH = 100
-OPP_WINDOW = "opp_setup_window"
-
-HIDE_TRAITS = []
 
 att_traits: List[Dict[str, Any]] = []
 wpn_traits: List[Dict[str, Any]] = []
@@ -297,7 +291,7 @@ def make_opp_window():
 
     with window(
         label="Attack Scenario",
-        tag=OPP_WINDOW,
+        tag=OPP_SETUP_WINDOW,
         height=WINDOW_HEIGHT,
         width=WINDOW_WIDTH,
         horizontal_scrollbar=True,
@@ -574,7 +568,18 @@ def make_opp_window():
                     add_input_text(tag="test_name", width=LARGE_INPUT_WIDTH)
                     add_button(tag="btn_run", label="Run", callback=run_test)
 
-        update_test()
+    update_test()
+
+    add_window(
+        tag=OPP_PLOTS_WINDOW,
+        label="Opposed Test",
+        height=WINDOW_HEIGHT - 20,
+        width=WINDOW_WIDTH,
+        no_scrollbar=False,
+        horizontal_scrollbar=True,
+        pos=(0, 40),
+        show=False,
+    )
 
 
 def make_scenario() -> hgb.Scenario:
@@ -683,18 +688,10 @@ def run_test():
         set_value("test_name", f"Test {num_tests + 1:g}")
         tests[test_name] = test
 
-        window = add_window(
-            label=test_name,
-            height=WINDOW_HEIGHT - 20 * num_tests,
-            width=WINDOW_WIDTH,
-            no_scrollbar=False,
-            horizontal_scrollbar=True,
-            pos=(0, 20 + (20 * num_tests)),
-        )
-        last_3 = list(tests)[-3:]
         graph_results(
-            window=window,
-            tests={test_name: tests[test_name] for test_name in last_3},
+            window=OPP_PLOTS_WINDOW,
+            all_tests=tests,
+            selected=list(tests)[-3:],
         )
     except Exception:
         print(traceback.format_exc())

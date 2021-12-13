@@ -1,24 +1,24 @@
 from decimal import getcontext
 from dearpygui.dearpygui import *
-from HGBOpposedWindow import OPP_WINDOW, make_opp_window
-from HGBUnopposedWindow import UNOPP_WINDOW, make_unopp_window
+from HGBOpposedWindow import OPP_SETUP_WINDOW, make_opp_window
+from HGBUnopposedWindow import UNOPP_SETUP_WINDOW, make_unopp_window
+from HGBGuiConstants import *
 
 # TODO: Associate model params w/ objects
 # TODO: Save/load config
 
-VIEWPORT_WIDTH, VIEWPORT_HEIGHT = 1400, 1000
 
 getcontext().prec = 12
 
 
 def opposed_cb():
-    show_item(OPP_WINDOW)
-    hide_item(UNOPP_WINDOW)
+    show_item(OPP_SETUP_WINDOW)
+    hide_item(UNOPP_SETUP_WINDOW)
 
 
 def unopposed_cb():
-    hide_item(OPP_WINDOW)
-    show_item(UNOPP_WINDOW)
+    hide_item(OPP_SETUP_WINDOW)
+    show_item(UNOPP_SETUP_WINDOW)
 
 
 def start_gui():
@@ -39,7 +39,7 @@ def start_gui():
 
     setup_dearpygui()
     show_viewport()
-    # show_item_registry()
+    show_item_registry()
     # show_style_editor()
     # show_documentation()
     start_dearpygui()
