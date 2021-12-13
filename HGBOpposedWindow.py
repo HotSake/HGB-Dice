@@ -673,7 +673,7 @@ def run_test():
             name: stats.do_analysis(test_outcomes, analysis)
             for name, analysis in stats.analyses.items()
         }
-        print("\n\n".join(str(res) for res in test.values()))
+        # print_test(test)
 
         global num_tests, tests
         num_tests += 1
@@ -698,3 +698,7 @@ def run_test():
         )
     except Exception:
         print(traceback.format_exc())
+
+
+def print_test(test: test):
+    print("\n-----\n".join(str(res) for res in test.values()))

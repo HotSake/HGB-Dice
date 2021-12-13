@@ -42,7 +42,30 @@ class SourceResult:
     min_totals: PDF = field(default_factory=dict)
 
     def __str__(self) -> str:
-        return ""  # TODO Manually define print. Maybe pprint PDFs, need more \n
+        out = f"source: {self.source}, type: {self.type}\n"
+        out += f"totals (Avg: {self.average}):\n"
+        out += "\n".join(f"\t{val:g}: {prob:0.2%}" for val, prob in self.totals.items())
+        out += f"\nnormalized_totals (Avg: {self.normalized_average}):\n"
+        out += "\n".join(
+            f"\t{val:g}: {prob:0.2%}" for val, prob in self.normalized_totals.items()
+        )
+        out += f"\nmin_totals:\n"
+        out += "\n".join(
+            f"\t{val:g}: {prob:0.2%}" for val, prob in self.min_totals.items()
+        )
+        return out
+
+
+def print_results(results: List[Dict]):
+    for res in results:
+        print(f"{res['name']} (Avg: {res['average']:0.2f})")
+        print("\n".join(f"\t{k:g}: {v:0.2%}" for k, v in res["totals"].items()))
+        sources = res.get("by_source", [])
+        for source in sources:
+            print(f"\n\t{source['name']} (Avg: {source['average']:0.2g})")
+            print(
+                "\n".join(f"\t\t{k:g}: {v:0.2%}" for k, v in source["totals"].items())
+            )
 
 
 class DefaultSourceDict(dict):
@@ -69,7 +92,7 @@ class Result:
     def __str__(self) -> str:
         out = f"name: {self.name}, type: {self.type}\n"
         if self.sources:
-            out += "\n".join(f"{str(source)}" for source in self.sources.values())
+            out += "\n\n".join(f"{str(source)}" for source in self.sources.values())
         return out
 
 
