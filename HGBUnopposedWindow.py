@@ -1,19 +1,20 @@
 from collections import defaultdict
 import traceback
 from dearpygui.dearpygui import *
-from diceProbs import all_probs_high_die, all_probs_threshold, expected, standard_dev
-
-WINDOW_WIDTH, WINDOW_HEIGHT = 1350, 950
-SMALL_INPUT_WIDTH = 50
-PLOT_HEIGHT = 425
-PLOT_WIDTH = 425
-UNOPP_WINDOW = "unopp_setup_window"
+from diceProbs import (
+    all_probs_drop_high,
+    all_probs_high_die,
+    all_probs_threshold,
+    expected,
+    standard_dev,
+)
+from HGBGuiConstants import *
 
 
 def make_unopp_window():
     with window(
         label="Roll Statistics",
-        tag=UNOPP_WINDOW,
+        tag=UNOPP_SETUP_WINDOW,
         height=WINDOW_HEIGHT,
         width=WINDOW_WIDTH,
     ):
@@ -91,6 +92,7 @@ def update_test() -> bool:
         skill = int(get_value("skill"))
         res_bonus = int(get_value("result"))
         base_rolls = all_probs_high_die(dice=dice, sides=6)
+        # base_rolls = all_probs_drop_high(dice=dice)
         final_rolls = defaultdict(float)
 
         for roll, prob in base_rolls.items():

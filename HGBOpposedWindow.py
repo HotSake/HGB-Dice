@@ -6,19 +6,12 @@ from functools import partial
 import HGBModelDefs as md
 import HGBWeaponDefs as wd
 import HGBRules as hgb
+from ResultPlots import graph_results
 from itertools import chain
 import HGBDiceStats as stats
 import traceback
+from HGBGuiConstants import *
 
-WINDOW_WIDTH, WINDOW_HEIGHT = 1350, 950
-TRAIT_LIST_WIDTH = 200
-SMALL_INPUT_WIDTH = 50
-LARGE_INPUT_WIDTH = 100
-PLOT_HEIGHT = 450
-PLOT_WIDTH = 425
-OPP_WINDOW = "opp_setup_window"
-
-HIDE_TRAITS = []
 
 att_traits: List[Dict[str, Any]] = []
 wpn_traits: List[Dict[str, Any]] = []
@@ -26,8 +19,8 @@ def_traits: List[Dict[str, Any]] = []
 avail_traits: List[str] = []
 selected_traits: List[Dict[str, Any]] = []
 num_tests: int = 0
-tests: Dict[str, Dict] = dict()
-
+test = Mapping[str, stats.Result]
+tests: Dict[str, test] = dict()
 modal_window = partial(window, modal=True, no_resize=True, no_move=True, no_close=True)
 
 
@@ -298,7 +291,7 @@ def make_opp_window():
 
     with window(
         label="Attack Scenario",
-        tag=OPP_WINDOW,
+        tag=OPP_SETUP_WINDOW,
         height=WINDOW_HEIGHT,
         width=WINDOW_WIDTH,
         horizontal_scrollbar=True,
@@ -575,12 +568,18 @@ def make_opp_window():
                     add_input_text(tag="test_name", width=LARGE_INPUT_WIDTH)
                     add_button(tag="btn_run", label="Run", callback=run_test)
 
-        update_test()
+    update_test()
 
-    with theme(tag="plot_theme"):
-        with theme_component(mvBarSeries):
-            add_theme_color(mvPlotCol_Line, (0, 0, 0), category=mvThemeCat_Plots)
-            add_theme_style(mvPlotStyleVar_LineWeight, 3, category=mvThemeCat_Plots)
+    add_window(
+        tag=OPP_PLOTS_WINDOW,
+        label="Opposed Test",
+        height=WINDOW_HEIGHT - 20,
+        width=WINDOW_WIDTH,
+        no_scrollbar=False,
+        horizontal_scrollbar=True,
+        pos=(0, 40),
+        show=False,
+    )
 
 
 def make_scenario() -> hgb.Scenario:
@@ -675,235 +674,28 @@ def run_test():
     try:
         test_outcomes = list(sorted(make_scenario().evaluate(), key=attrgetter("prob")))
 
-        analyses = dict()
-        analyses.update(stats.BASIC_ANALYSES)
-        analyses.update(stats.STATUS_ANALYSES)
-        results = [stats.do_analysis(test_outcomes, an) for an in analyses.values()]
-        results = [r for r in results if r is not None]
+        test = {
+            name: stats.do_analysis(test_outcomes, analysis)
+            for name, analysis in stats.analyses.items()
+        }
+        # print_test(test)
 
         global num_tests, tests
         num_tests += 1
-        name = get_value("test_name")
-        if not name:
-            name = f"Test {num_tests:g}"
+        test_name = get_value("test_name")
+        if not test_name:
+            test_name = f"Test {num_tests:g}"
         set_value("test_name", f"Test {num_tests + 1:g}")
-        tests[name] = results
+        tests[test_name] = test
 
-        # print_results(results)
-        window = add_window(
-            label=name,
-            height=WINDOW_HEIGHT - 20 * num_tests,
-            width=WINDOW_WIDTH,
-            no_scrollbar=False,
-            horizontal_scrollbar=True,
-            pos=(0, 20 + (20 * num_tests)),
-        )
         graph_results(
-            window=window,
-            num_tests=num_tests,
-            results=results,
+            window=OPP_PLOTS_WINDOW,
+            all_tests=tests,
+            selected=list(tests)[-3:],
         )
     except Exception:
         print(traceback.format_exc())
 
 
-def show_plots(show: Tuple[str], hide: Tuple[str]):
-    def callback():
-        nonlocal show, hide
-        for tag in hide:
-            hide_item(tag)
-        for tag in show:
-            show_item(tag)
-
-    return callback
-
-
-# TODO: Alter graph_results() args to accept multiple tests
-# TODO: Create and delete series/plots on demand within window
-# TODO: Remove all tags and only use IDs
-def graph_results(
-    window: int,
-    num_tests: int,
-    results: List[Dict],
-):
-    push_container_stack(window)
-    add_text("Click plots to cycle between analysis types!")
-    # TODO: Add dropdown for comparisons
-    # TODO: Recalc max cols for multiple tests
-    cols = max(len(res.get("by_source", [])) for res in results) + 1
-    with table(
-        header_row=False,
-        resizable=False,
-        policy=mvTable_SizingFixedSame,
-        borders_outerH=False,
-        borders_outerV=False,
-        borders_innerH=False,
-        borders_innerV=True,
-        scrollX=True,
-        scrollY=True,
-    ):
-        for _ in range(cols):
-            add_table_column(
-                width=PLOT_WIDTH + 5,
-                width_fixed=True,
-                no_resize=True,
-                no_reorder=True,
-                no_sort=True,
-            )
-        for res in results:
-            base_plots, normal_plots, min_plots = plot_result(res)
-
-            base_handler = add_item_handler_registry()
-            normal_handler = add_item_handler_registry()
-            min_handler = add_item_handler_registry()
-
-            add_item_clicked_handler(
-                parent=base_handler,
-                callback=show_plots(normal_plots, base_plots + min_plots),
-            )
-
-            if min_plots:
-                show = min_plots
-                hide = base_plots + normal_plots
-            else:
-                show = base_plots
-                hide = normal_plots
-            add_item_clicked_handler(
-                parent=normal_handler, callback=show_plots(show, hide)
-            )
-
-            add_item_clicked_handler(
-                parent=min_handler,
-                callback=show_plots(base_plots, normal_plots + min_plots),
-            )
-
-            for plot in base_plots:
-                bind_item_handler_registry(plot, base_handler)
-            for plot in normal_plots:
-                bind_item_handler_registry(plot, normal_handler)
-            for plot in min_plots:
-                bind_item_handler_registry(plot, min_handler)
-
-            show_plots(base_plots, normal_plots + min_plots)()
-    pop_container_stack()
-
-
-def plot_result(res: Mapping[str, Any]) -> Tuple[Tuple[int]]:
-    if res["type"] == stats.AnalysisType.BOOL:
-        avg = f"{res['average']:0.1%}"
-        normal_label = (
-            f"WHEN {res['name']} is True" + f" (Avg: {res['normalized_average']:0.1%})"
-        )
-    else:
-        avg = f"{res['average']:0.2f}"
-        normal_label = (
-            f"WHEN {res['name']} > 0" + f" (Avg: {res['normalized_average']:0.2f})"
-        )
-    base_label = f"{res['name']} (Avg: {avg})"
-    min_label = f"{res['name']} AT LEAST X:"
-    groups = []
-
-    with table_row(height=PLOT_HEIGHT + 5):
-        groups.append(make_plot_group(res, (base_label, normal_label, min_label)))
-        sources = res.get("by_source", [])
-        for source in sources:
-            if res["type"] == stats.AnalysisType.BOOL:
-                avg = f"{source['average']:0.1%}"
-                normal_label = (
-                    f"WHEN {res['name']} is True:"
-                    + f"\n{res['name']} from {source['name']}"
-                    + f" (Avg: {source['normalized_average']:0.1%})"
-                )
-            else:
-                avg = f"{source['average']:0.2f}"
-                normal_label = (
-                    f"WHEN {res['name']} > 0:"
-                    + f"\n{res['name']} from {source['name']}"
-                    + f" (Avg: {source['normalized_average']:0.2f})"
-                )
-            min_label = (
-                f"{res['name']} AT LEAST X:" + f"\n{res['name']} from {source['name']}"
-            )
-            base_label = f"{res['name']} from {source['name']} (Avg: {avg})"
-            groups.append(
-                make_plot_group(source, (base_label, normal_label, min_label))
-            )
-    # transpose and return list of groups
-    return tuple(tuple(p for p in g if p is not None) for g in zip(*groups))
-
-
-def make_plot_group(res, labels: Tuple[str]) -> Tuple[int]:
-    base_label, normal_label, min_label = labels
-    with table_cell():
-        base_plot = bar_plot(
-            label=base_label,
-            height=PLOT_HEIGHT,
-            width=PLOT_WIDTH,
-            data_x=[float(k) for k in res["totals"].keys()],
-            data_y=[float(v) for v in res["totals"].values()],
-            datatype=res["type"],
-        )
-        normal_plot = bar_plot(
-            label=normal_label,
-            height=PLOT_HEIGHT,
-            width=PLOT_WIDTH,
-            data_x=[float(k) for k in res["normalized_totals"].keys()],
-            data_y=[float(v) for v in res["normalized_totals"].values()],
-            datatype=res["type"],
-        )
-        min_plot = None
-        if res.get("min_totals", None):
-            min_plot = bar_plot(
-                label=min_label,
-                height=PLOT_HEIGHT,
-                width=PLOT_WIDTH,
-                data_x=[float(k) for k in res["min_totals"].keys()],
-                data_y=[float(v) for v in res["min_totals"].values()],
-                datatype=res["type"],
-            )
-
-    return (base_plot, normal_plot, min_plot)
-
-
-# TODO: Change args to accept multiple series
-def bar_plot(
-    label: str,
-    height: int,
-    width: int,
-    data_x: List[float],
-    data_y: List[float],
-    datatype: stats.AnalysisType,
-) -> int:
-    plot = add_plot(
-        label=label,
-        height=height,
-        width=width,
-        no_mouse_pos=True,
-    )
-    x_axis = add_plot_axis(parent=plot, axis=mvXAxis)
-    if datatype == stats.AnalysisType.BOOL:
-        set_axis_ticks(x_axis, (("No", 0), ("Yes", 1)))
-    elif datatype == stats.AnalysisType.RANGE:
-        labels = [str(int(x)) for x in data_x]
-        set_axis_ticks(x_axis, tuple(zip(labels, data_x)))
-    y_label = "Probability %"
-    y_axis = add_plot_axis(parent=plot, axis=mvYAxis, label=y_label)
-    labels = [f"{y:0.2%}" for y in data_y]
-    set_axis_ticks(y_axis, tuple(zip(labels, data_y)))
-    add_bar_series(data_x, data_y, parent=y_axis, weight=0.8)
-    set_axis_limits(x_axis, ymin=min(data_x) - 0.8, ymax=max(data_x) + 0.8)
-    set_axis_limits(y_axis, ymin=0.0, ymax=max(data_y) * 1.1)
-    bind_item_theme(plot, "plot_theme")
-    return plot
-
-
-def print_results(results: List[Dict]):
-    for res in results:
-        print(f"{res['name']} (Avg: {res['average']:0.2f})")
-        print("\n".join(f"\t{k:g}: {v:0.2%}" for k, v in res["totals"].items()))
-        sources = res.get("by_source", [])
-        for source in sources:
-            print(f"\n\t{source['name']} (Avg: {source['average']:0.2g})")
-            print(
-                "\n".join(f"\t\t{k:g}: {v:0.2%}" for k, v in source["totals"].items())
-            )
+def print_test(test: test):
+    print("\n-----\n".join(str(res) for res in test.values()))

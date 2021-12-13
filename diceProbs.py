@@ -1,7 +1,7 @@
 from __future__ import annotations
 from collections import Counter
 from itertools import product
-from typing import Dict
+from typing import Dict, Iterable
 import math
 
 
@@ -33,6 +33,19 @@ def all_probs_brute_force_max_roll(dice: int) -> Dict[int, float]:
     count = Counter(map(max, product((1, 2, 3, 4, 5, 6), repeat=dice)))
     rolls = sum(count.values())
     return {k: v / rolls for k, v in count.items()}
+
+
+def all_probs_drop_high(dice: int) -> Dict[int, float]:
+    # Just for verification purposes
+    count = Counter(map(max, map(drop_high, product((1, 2, 3, 4, 5, 6), repeat=dice))))
+    rolls = sum(count.values())
+    return {k: v / rolls for k, v in count.items()}
+
+
+def drop_high(roll: Iterable) -> tuple:
+    roll = list(roll)
+    roll.remove(max(roll))
+    return tuple(roll)
 
 
 def check_accuracy(maxDice=9):
