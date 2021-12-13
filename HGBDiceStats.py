@@ -8,6 +8,7 @@ from itertools import chain
 from typing import Any, Dict, Iterable, List, Mapping
 from decimal import Decimal, getcontext
 import HGBRules as hgb
+import pprint
 
 getcontext().prec = 12
 
@@ -40,6 +41,9 @@ class SourceResult:
     normalized_average: Decimal = Decimal(0)
     min_totals: PDF = field(default_factory=dict)
 
+    def __str__(self) -> str:
+        return ""  # TODO Manually define print. Maybe pprint PDFs, need more \n
+
 
 class DefaultSourceDict(dict):
     def __init__(self, type: AnalysisType):
@@ -61,6 +65,12 @@ class Result:
 
     def __post_init__(self):  # Use post_init to initialize from other fields
         self.sources = DefaultSourceDict(self.type)
+
+    def __str__(self) -> str:
+        out = f"name: {self.name}, type: {self.type}\n"
+        if self.sources:
+            out += "\n".join(f"{str(source)}" for source in self.sources.values())
+        return out
 
 
 BASIC_ANALYSES = {

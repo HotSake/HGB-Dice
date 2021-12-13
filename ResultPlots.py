@@ -118,25 +118,15 @@ def plot_result(tests: Mapping[str, test], analysis: str) -> Tuple[Tuple[int]]:
     normal_label = f"WHEN {analysis} > 0"
     min_label = f"{analysis} AT LEAST X:"
     groups = []
-    results: Mapping[str, stats.SourceResult] = {
-        name: test[analysis].sources["All"] for name, test in tests.items()
-    }
+
     with table_row(height=PLOT_HEIGHT + 5):
-        groups.append(
-            make_plot_group(
-                results,
-                (base_label, normal_label, min_label),
-            )
-        )
         source_names = chain.from_iterable(
             test[analysis].sources for test in tests.values()
         )
         source_names = list(dict.fromkeys(source_names))  # Deduplicate source names
-        source_names.remove("All")
 
-        if len(source_names) < 2:  # Don't make source plots if single source present
-            # transpose and return list of groups
-            return tuple(tuple(p for p in g if p is not None) for g in zip(*groups))
+        if len(source_names) < 3:  # Don't make source plots if single source present
+            source_names = ["All"]
 
         for source_name in source_names:
             results = {

@@ -673,6 +673,8 @@ def run_test():
             name: stats.do_analysis(test_outcomes, analysis)
             for name, analysis in stats.analyses.items()
         }
+        print("\n\n".join(str(res) for res in test.values()))
+
         global num_tests, tests
         num_tests += 1
         test_name = get_value("test_name")
@@ -696,15 +698,3 @@ def run_test():
         )
     except Exception:
         print(traceback.format_exc())
-
-
-def print_results(results: List[Dict]):
-    for res in results:
-        print(f"{res['name']} (Avg: {res['average']:0.2f})")
-        print("\n".join(f"\t{k:g}: {v:0.2%}" for k, v in res["totals"].items()))
-        sources = res.get("by_source", [])
-        for source in sources:
-            print(f"\n\t{source['name']} (Avg: {source['average']:0.2g})")
-            print(
-                "\n".join(f"\t\t{k:g}: {v:0.2%}" for k, v in source["totals"].items())
-            )
