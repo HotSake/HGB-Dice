@@ -693,6 +693,8 @@ def run_test():
             all_tests=tests,
             selected=list(tests)[-3:],
         )
+        focus_item(OPP_PLOTS_WINDOW)
+
     except Exception:
         print(traceback.format_exc())
 
