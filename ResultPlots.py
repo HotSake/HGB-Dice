@@ -141,7 +141,7 @@ def plot_result(tests: Mapping[str, test], analysis: str) -> Tuple[Tuple[int]]:
         )
         source_names = list(dict.fromkeys(source_names))  # Deduplicate source names
 
-        if len(source_names) < 3:  # Don't make source plots if single source present
+        if len(source_names) <= 2:  # Don't make source plots if single source present
             source_names = ["All"]
 
         for source_name in source_names:
@@ -149,13 +149,14 @@ def plot_result(tests: Mapping[str, test], analysis: str) -> Tuple[Tuple[int]]:
                 name: test[analysis].sources[source_name]
                 for name, test in tests.items()
             }
-            base_label = f"{analysis} from {source_name}"
-            normal_label = (
-                f"WHEN {analysis} > 0:" + f"\n{analysis} from source: {source_name}"
-            )
-            min_label = (
-                f"{analysis} AT LEAST X:" + f"\n{analysis} from source: {source_name}"
-            )
+            base_label = f"{analysis}"
+            normal_label = f"WHEN {analysis} > 0:"
+            min_label = f"{analysis} AT LEAST X:"
+            if source_name != "All":
+                base_label += f" from {source_name}"
+                normal_label += f"\n{analysis} from source: {source_name}"
+                min_label += f"\n{analysis} from source: {source_name}"
+
             groups.append(
                 make_plot_group(results, (base_label, normal_label, min_label))
             )
@@ -222,6 +223,7 @@ def make_plot_group(
     return (base_plot, normal_plot, min_plot)
 
 
+# TODO: Add floating tooltip keyed to X position that displays y-values clearly
 def bar_plot(
     label: str,
     height: int,
