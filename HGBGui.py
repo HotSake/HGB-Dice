@@ -1,8 +1,8 @@
 from decimal import getcontext
 from dearpygui.dearpygui import *
-from HGBOpposedWindow import OPP_SETUP_WINDOW, make_opp_window
-from HGBUnopposedWindow import UNOPP_SETUP_WINDOW, make_unopp_window
-from HGBGuiConstants import *
+from gui.HGBOpposedWindow import OPP_SETUP_WINDOW, make_opp_window
+from gui.HGBUnopposedWindow import UNOPP_SETUP_WINDOW, make_unopp_window
+from gui.HGBGuiConstants import *
 
 # TODO: Associate model params w/ objects
 # TODO: Save/load config
