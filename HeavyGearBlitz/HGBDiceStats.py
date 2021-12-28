@@ -128,7 +128,7 @@ BASIC_ANALYSES = {
         show_if_missing=True,
     ),
     "Denied": Analysis(
-        name="Denied",
+        name="Damage Denied",
         description="Damage prevented by traits",
         datatype=AnalysisType.RANGE,
         effect_params={"name": hgb.AnalysisEffects.DamageDenied},

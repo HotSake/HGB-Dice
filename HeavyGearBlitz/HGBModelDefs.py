@@ -139,14 +139,14 @@ class FieldArmorComponent(Component):
         if state.get_effects(name=RuleEffects.Miss):
             return frozenset({state})
 
-        attack_damage = state.sum_effects(
-            name=AttackEffects.AttackDamage,
-            source="Base Rules",
-        )
         ap_damage = state.sum_effects(
             name=AttackEffects.AttackDamage,
             source="AP",
         )
+        attack_damage = state.sum_by_filter(
+            lambda e: e.name == AttackEffects.AttackDamage and e.source != "AP"
+        )
+
         if attack_damage + ap_damage <= 1:
             return frozenset({state})
 

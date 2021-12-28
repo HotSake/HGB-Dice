@@ -66,12 +66,12 @@ class State:
         return frozenset(e for e in self.effects if pred(e))
 
     def sum_effects(self, **kwargs) -> Decimal:
-        """Returns sum of value attributes whose effects match kwargs"""
+        """Returns sum of value attributes of Effects whose attributes match kwargs"""
         effects = self.get_effects(**kwargs)
         return sum(map(attrgetter("value"), effects))
 
     def sum_by_filter(self, pred: Callable[[BaseEffect], bool]) -> Decimal:
-        """Return sum of value attributers of Effects matching a predicate"""
+        """Return sum of value attributes of Effects matching a predicate"""
         effects = self.get_by_filter(pred)
         return sum(map(attrgetter("value"), effects))
 

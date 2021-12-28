@@ -335,7 +335,7 @@ class AttackRuleComponent(Component):
             state = state.add_effect(marginal_hit)
         attack_damage_eff = Effect(
             name=AttackEffects.AttackDamage,
-            source="Attack Damage",
+            source="Base Rules",
             value=Decimal(max(attack_damage, 0)),
         )
         state = state.add_effect(attack_damage_eff)
