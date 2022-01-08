@@ -96,7 +96,7 @@ class Result:
         return out
 
 
-BASIC_ANALYSES = {
+basic_list = {
     "MoS": Analysis(
         name="MoS",
         description="Margin of Success",
@@ -143,7 +143,9 @@ BASIC_ANALYSES = {
     ),
 }
 
-STATUS_ANALYSES = {
+BASIC_ANALYSES = {a.name: a for a in basic_list}
+
+status_list = {
     "Crippled": Analysis(
         name="Crippled",
         description="Defender crippled",
@@ -171,6 +173,8 @@ STATUS_ANALYSES = {
         effect_params={"name": hgb.StatusEffects.Corrosion},
     ),
 }
+
+STATUS_ANALYSES = {a.name: a for a in status_list}
 
 analyses = {**BASIC_ANALYSES, **STATUS_ANALYSES}
 
