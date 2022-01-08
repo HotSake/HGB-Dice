@@ -127,7 +127,7 @@ BASIC_ANALYSES = {
         split_by_source=True,
         show_if_missing=True,
     ),
-    "Denied": Analysis(
+    "Damage Denied": Analysis(
         name="Damage Denied",
         description="Damage prevented by traits",
         datatype=AnalysisType.RANGE,
