@@ -96,22 +96,22 @@ class Result:
         return out
 
 
-basic_list = {
-    "MoS": Analysis(
+basic_list = [
+    Analysis(
         name="MoS",
         description="Margin of Success",
         datatype=AnalysisType.RANGE,
         effect_params={"name": hgb.RuleEffects.MoS},
         show_if_missing=True,
     ),
-    "Hit": Analysis(
+    Analysis(
         name="Hit",
         description="Hit Rate",
         datatype=AnalysisType.BOOL,
         effect_params={"name": hgb.RuleEffects.Hit},
         show_if_missing=True,
     ),
-    "Miss": Analysis(
+    Analysis(
         name="Miss",
         description="Miss Rate (including Agile if present)",
         datatype=AnalysisType.BOOL,
@@ -119,7 +119,7 @@ basic_list = {
         split_by_source=True,
         show_if_missing=True,
     ),
-    "Damage": Analysis(
+    Analysis(
         name="Damage",
         description="Total damage dealt",
         datatype=AnalysisType.RANGE,
@@ -127,52 +127,52 @@ basic_list = {
         split_by_source=True,
         show_if_missing=True,
     ),
-    "Damage Denied": Analysis(
+    Analysis(
         name="Damage Denied",
         description="Damage prevented by traits",
         datatype=AnalysisType.RANGE,
         effect_params={"name": hgb.AnalysisEffects.DamageDenied},
         split_by_source=True,
     ),
-    "Overdamage": Analysis(
+    Analysis(
         name="Overdamage",
         description="Damage dealt in excess of H/S",
         datatype=AnalysisType.RANGE,
         effect_params={"name": hgb.AnalysisEffects.Overdamage},
         split_by_source=True,
     ),
-}
+]
 
 BASIC_ANALYSES = {a.name: a for a in basic_list}
 
-status_list = {
-    "Crippled": Analysis(
+status_list = [
+    Analysis(
         name="Crippled",
         description="Defender crippled",
         datatype=AnalysisType.BOOL,
         effect_params={"name": hgb.StatusEffects.Crippled},
         split_by_source=True,
     ),
-    "Destroyed": Analysis(
+    Analysis(
         name="Destroyed",
         description="Defender destroyed",
         datatype=AnalysisType.BOOL,
         effect_params={"name": hgb.StatusEffects.Destroyed},
         split_by_source=True,
     ),
-    "Haywired": Analysis(
+    Analysis(
         name="Haywired",
         description="Defender Haywired",
         datatype=AnalysisType.BOOL,
         effect_params={"name": hgb.StatusEffects.Haywired},
     ),
-    "Corrosion": Analysis(
+    Analysis(
         name="Corrosion",
         description="Defender has Corrosion",
         datatype=AnalysisType.BOOL,
         effect_params={"name": hgb.StatusEffects.Corrosion},
     ),
-}
+]
 
 STATUS_ANALYSES = {a.name: a for a in status_list}
 
