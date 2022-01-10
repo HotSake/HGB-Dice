@@ -51,10 +51,11 @@ def graph_results(window: int, all_tests: Mapping[str, test], selected: List[str
 
     add_text("Click plots to cycle between analysis types!")
     tests = {name: all_tests[name] for name in selected}
-    cols = max(
-        len(res.sources)
-        for res in chain.from_iterable(test.values() for test in tests.values())
-    )
+    # cols = max(
+    #     len(res.sources)
+    #     for res in chain.from_iterable(test.values() for test in tests.values())
+    # )
+    cols = 10
     with table(
         header_row=False,
         resizable=False,
@@ -242,8 +243,8 @@ def bar_plot(
     )
     add_plot_legend(parent=plot)
     # Dummy missing data
-    data_x = [x if x else [] for x in data_x]
-    data_y = [y if y else [] for y in data_y]
+    data_x = [x if x else [0.0] for x in data_x]
+    data_y = [y if y else [1.0] for y in data_y]
 
     x_min = min(chain.from_iterable(data_x)) - 0.8
     x_max = max(chain.from_iterable(data_x)) + 0.8

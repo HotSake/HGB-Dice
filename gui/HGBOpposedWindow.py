@@ -112,6 +112,7 @@ def configure_trait(selected_traits, trait_defs: Dict[str, hgb.Trait]):
             configure_item("trait_value", callback=allow_done)
             configure_item("value_done", callback=close_callback)
             show_item("value_popup")
+            focus_item("value_popup")
         else:
             selected_traits.append({"name": name})
             for t in trait_defs[name].excludes:
@@ -156,6 +157,7 @@ def pick_traits(sender, app_data):
 
     build_traits()
     show_item("trait_picker")
+    focus_item("trait_picker")
 
 
 def update_traits():
@@ -173,12 +175,14 @@ def update_traits():
     )
     if "ANN" in (t["name"] for t in att_traits):
         show_item("att_ann")
+        focus_item("att_ann")
     else:
         set_value("att_ann", False)
         hide_item("att_ann")
 
     if "ANN" in (t["name"] for t in def_traits):
         show_item("def_ann")
+        focus_item("def_ann")
     else:
         set_value("def_ann", False)
         hide_item("def_ann")
@@ -566,7 +570,7 @@ def make_opp_window():
             with table_row():
                 with group(horizontal=True):
                     add_text("Name:")
-                    add_input_text(tag="test_name", width=LARGE_INPUT_WIDTH)
+                    add_input_text(tag="test_name", width=TRAIT_LIST_WIDTH)
                     add_button(tag="btn_run", label="Run", callback=run_test)
 
     update_test()

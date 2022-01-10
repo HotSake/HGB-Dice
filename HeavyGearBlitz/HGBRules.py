@@ -359,7 +359,7 @@ class AttackRuleComponent(Component):
         if state.get_effects(name=RuleEffects.Miss):
             return frozenset({state})
 
-        damage_order = ["Attack Damage", "Marginal Hit", "AP"]
+        damage_order = ["Base Rules", "Marginal Hit", "AP"]
         for source in damage_order:
             state = apply_damage(
                 state=state,
