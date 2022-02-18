@@ -420,8 +420,8 @@ class StableComponent(Component):
 
     def _stable(self, state: State) -> FrozenSet(State):
         can_stable = bool(
-            state.get_effects(name=Speed.Combat, source="Attacker")
-            or state.get_effects(name=Speed.Top, source="Attacker")
+            state.get_effects(name=Speed.Combat, source=Roles.Attacker)
+            or state.get_effects(name=Speed.Top, source=Roles.Attacker)
         )
         if can_stable:
             eff = Effect(name=RuleEffects.ModDice, source="Stable", value=Decimal(1))
