@@ -34,6 +34,8 @@ from .HGBRules import (
 
 
 class AgileComponent(Component):
+    """Convert MoS 0 hits to misses"""
+
     def __init__(self) -> None:
         super().__init__()
         self._behaviors[ResolveTimeSteps.APPLY_HIT_MISS] = self._agile
@@ -47,6 +49,8 @@ class AgileComponent(Component):
 
 
 class BrawlComponent(Component):
+    """Grant bonus dice on melee attacks only"""
+
     def __init__(self, value: int) -> None:
         super().__init__()
         self._value = Decimal(value)
@@ -61,6 +65,8 @@ class BrawlComponent(Component):
 
 
 class CoverComponent(Component):
+    """Grant cover effect and apply cover dice to defender."""
+
     def __init__(self, amount: CoverAmount) -> None:
         super().__init__()
         self._amount = amount
@@ -82,6 +88,8 @@ class CoverComponent(Component):
 
 
 class FacingComponent(Component):
+    """Grant bonus dice for Defender facing. The Attacker model holds this."""
+
     def __init__(self, facing: Facings) -> None:
         super().__init__()
         self._facing = facing
@@ -103,6 +111,9 @@ class FacingComponent(Component):
 
 
 class ElevatedVTOLComponent(Component):
+    """Grant elevation bonus to Attacker and flag Defender as Aircraft. Attacker type
+    doesn't matter in current rules."""
+
     def __init__(self) -> None:
         super().__init__()
         self._behaviors[RollTimeSteps.INITIALIZE] = self._set_type
@@ -129,6 +140,8 @@ class ElevatedVTOLComponent(Component):
 
 
 class FieldArmorComponent(Component):
+    """Reduce damage from AP first, then base damage. Minimum 1 damage remains."""
+
     def __init__(self) -> None:
         super().__init__()
         self._behaviors[ResolveTimeSteps.MOD_ATTACK_DAMAGE] = self._reduce_damage
@@ -178,6 +191,8 @@ class FieldArmorComponent(Component):
 
 
 class InfantryComponent(Component):
+    """Set model type as Infantry, apply extra cover bonus, and cap non-AI damage."""
+
     def __init__(self) -> None:
         super().__init__()
         self._behaviors[RollTimeSteps.INITIALIZE] = self._set_type
@@ -252,6 +267,8 @@ class InfantryComponent(Component):
 
 
 class LumberingComponent(Component):
+    """Cancel Top Speed defense bonus from Defender."""
+
     def __init__(self) -> None:
         super().__init__()
         self._behaviors[RollTimeSteps.GATHER_DICE] = self._lumbering
@@ -269,6 +286,8 @@ class LumberingComponent(Component):
 
 
 class RerollComponent(Component):
+    """Flag reroll condition for resolution logic."""
+
     def __init__(self, rule: RerollRules) -> None:
         super().__init__()
         self._rule = rule
@@ -280,6 +299,8 @@ class RerollComponent(Component):
 
 
 class ResistCorrosionComponent(Component):
+    """Prevent all corrosion damage and flag the average 0.5 damage prevented."""
+
     def __init__(self) -> None:
         super().__init__()
         self._behaviors[ResolveTimeSteps.ADD_EXTRA_EFFECTS] = self._resist
@@ -298,6 +319,8 @@ class ResistCorrosionComponent(Component):
 
 
 class ResistFireComponent(Component):
+    """Prevent all fire damage and flag the average damage prevented."""
+
     def __init__(self) -> None:
         super().__init__()
         self._behaviors[ResolveTimeSteps.ADD_EXTRA_EFFECTS] = self._resist
@@ -325,6 +348,8 @@ class ResistFireComponent(Component):
 
 
 class ResistHaywireComponent(Component):
+    """Prevent all haywire damage and flag the average 0.5 damage prevented."""
+
     def __init__(self) -> None:
         super().__init__()
         self._behaviors[ResolveTimeSteps.ADD_EXTRA_EFFECTS] = self._resist
@@ -343,6 +368,8 @@ class ResistHaywireComponent(Component):
 
 
 class SpeedComponent(Component):
+    """Apply speed mods to Attacker or Defender rolls appropriately"""
+
     def __init__(self, speed: Speed) -> None:
         super().__init__()
         self._speed: Speed = speed
@@ -379,8 +406,10 @@ class SpeedComponent(Component):
 
 
 class SkillComponent(Component):
+    """Calculate skill bonus to roll result."""
+
     # activates on GATHER_RESULT_BONUSES
-    # returns multiple states for different skill bonuses
+    # returns multiple states for different possible skill bonuses
     def __init__(self, value: int) -> None:
         super().__init__()
         self._value = value
@@ -401,7 +430,9 @@ class SkillComponent(Component):
         result_die = state.sum_effects(name=RuleEffects.ModResult, source="Result Die")
         threshold = state.sum_effects(name=RuleEffects.ModThreshold)
 
-        # sides=result_die because max roll is the result die by definition
+        # sides = result_die because max roll is the result die by definition.
+        # Because the extra dice are undetermined yet, their probabilities are evenly
+        # distributed among the remaining possible face values. It's a Monty Hall thing.
         skill_probs = all_probs_threshold(
             dice=int(dice), sides=int(result_die), val=int(threshold)
         )
@@ -414,6 +445,8 @@ class SkillComponent(Component):
 
 
 class StableComponent(Component):
+    """Gain the Stationary bonus at Combat or Top speed"""
+
     def __init__(self) -> None:
         super().__init__()
         self._behaviors[RollTimeSteps.GATHER_DICE] = self._stable
@@ -430,6 +463,8 @@ class StableComponent(Component):
 
 
 class VulnCorrosionComponent(Component):
+    """Always take corrosion damage without rolling"""
+
     def __init__(self) -> None:
         super().__init__()
         self._behaviors[ResolveTimeSteps.ADD_EXTRA_EFFECTS] = self._take_damage
@@ -450,6 +485,8 @@ class VulnCorrosionComponent(Component):
 
 
 class VulnFireComponent(Component):
+    """Always take fire damage without rolling"""
+
     def __init__(self) -> None:
         super().__init__()
         self._behaviors[ResolveTimeSteps.ADD_EXTRA_EFFECTS] = self._take_damage
@@ -470,6 +507,8 @@ class VulnFireComponent(Component):
 
 
 class VulnHaywireComponent(Component):
+    """Always take haywire damage without rolling"""
+
     def __init__(self) -> None:
         super().__init__()
         self._behaviors[ResolveTimeSteps.ADD_EXTRA_EFFECTS] = self._take_damage
@@ -648,15 +687,21 @@ MODEL_TRAIT_DEFS = {
 
 
 def model_trait_to_component(name: str, **kwargs) -> Component:
-    # print(f"{name}: {kwargs}")
+    """Create a model Component from a Trait definition and additional parameters."""
+
+    # Get partial call to instantiate Component from trait definition
     trait_factory = MODEL_TRAIT_DEFS[name].factory
+    # Identify any missing required parameters
     missing = set(MODEL_TRAIT_DEFS[name].required_params).difference(set(kwargs.keys()))
     if missing:
         print(f"Attempted to make {name} trait without required params: {missing}")
+    # Complete call to create new Component with supplied parameters
     return trait_factory(**kwargs)
 
 
 def make_model_components(
     model_params: Sequence[Mapping[str, Union[str, Decimal]]]
 ) -> frozenset(Component):
+    """Take a sequence of Trait parameters, each consisting of a name and any number of
+    additional parameters, and turn them into instantiated model Components."""
     return frozenset(model_trait_to_component(**params) for params in model_params)

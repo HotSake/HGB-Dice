@@ -7,8 +7,26 @@ from gui.HGBGuiConstants import *
 # TODO: Associate model params w/ objects
 # TODO: Save/load config
 
+"""Show main GUI. Run this file to start the app.
 
-getcontext().prec = 12
+App development notes:
+
+This app makes use of Python's functools and itertools modules quite extensively.
+If you're not familiar with them, or some basics of functional programming (mostly
+the concepts of "currying" or partial function calls and the built-in map() function),
+I recommend you read up on functools.partial and itertools.chain to familiarize
+yourself.
+
+It also makes use of mostly immutable objects during the evaluation process (see frozen 
+dataclasses). When a State needs to change, it is actually copied into a new State 
+object by the use of the dataclasses.replace function. Most collections are also 
+frozensets, which are just immutable sets.
+
+As for the GUI, I sincerely apologize. I don't know what I'm doing with GUI programming,
+and I'm sure it's a complete mess.
+"""
+
+getcontext().prec = 12  # Decimal precision to use if not otherwise specified.
 
 
 def opposed_cb():
@@ -22,6 +40,7 @@ def unopposed_cb():
 
 
 def start_gui():
+    """Start and stop the main GUI."""
     create_context()
     create_viewport(
         title="Heavy Gear Blitz Dice Stats",

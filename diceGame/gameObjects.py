@@ -22,6 +22,12 @@ class BaseEffect:
 
 @dataclass(order=True, frozen=True)
 class State:
+    """The State class represents one possible game state. State objects are immutable.
+
+    prob: Probability of arriving at the given game state.
+    effects: Set of game effects describing the game state, e.g. damage, status, etc.
+    """
+
     prob: Decimal = Decimal(1)
     effects: FrozenSet(BaseEffect) = field(default_factory=frozenset)
 
@@ -78,18 +84,28 @@ class State:
 
 # Type alias
 Behavior = Callable[[State], FrozenSet[State]]
+"""A Behavior is a function that operates on one State and returns an immutable
+set of one or more States. This is necessary because some rules may be probabilistic
+and thus cause a single input State to branch into multiple output States.
+"""
 
 
 class Component:
-    """Component class encapsulates behavior that mutates state. A component can have
-    multiple behaviors that activate on specific events/messages to perform their
-    function. Messages trigger methods by dispatching through a map.
+    """The Component base class encapsulates behavior that mutates state. A Component
+    can have multiple behaviors that activate on specific events/messages to perform
+    their functions. Messages trigger methods by dispatching through a map.
+
+    Subclass Component to define their actual Behaviors, then map Behaviors to messages
+    in the subclass's __init__() function.
 
     Components can express which messages they have behaviors for, so they only receive
-    those messages.
+    those messages. If passed a message for which they do not have a defined behavior,
+    they return the state unchanged.
     """
 
     def __init__(self) -> None:
+        # For safety, there is a default behavior for any message that returns the
+        # passed state unchanged.
         self._behaviors: Dict[Hashable, Behavior] = defaultdict(
             lambda: self._null_behavior
         )
@@ -99,6 +115,9 @@ class Component:
         return frozenset({state})
 
     def valid_messages(self) -> FrozenSet(Hashable):
+        # Report which messages this Component responds to. May contain messages
+        # for which it has a null behavior if it was erroneously passed those
+        # messages previously, as they will be added to the defaultdict as keys.
         return frozenset(self._behaviors.keys())
 
     def run(self, msg: Hashable, state: State) -> FrozenSet[State]:
@@ -108,6 +127,16 @@ class Component:
 
 
 class Entity:
+    """A game entity that operates on the game state according to rules. It could be
+    a model in the game with specific rules attached to it, or the abstract concept
+    of the game rules itself.
+
+    Entities contain Components that actually perform changes to the game state when
+    triggered by certain messages, representing steps of the roll resolution process.
+    Entities decide to pass on States to their Components for modification or not based
+    on their Components' message subscriptions.
+    """
+
     def __init__(self) -> None:
         self._subscriptions: DefaultDict[Hashable, List[Component]] = defaultdict(list)
 
@@ -131,7 +160,9 @@ class Entity:
 
 
 def normalize(states: FrozenSet[State]) -> FrozenSet[State]:
-    """Scales all state probabilities to sum to 1"""
+    """Scales all state probabilities to sum to 1. Useful to see actual probabilities
+    assuming that one of the given states MUST occur.
+    """
     prob_sum = sum(map(attrgetter("prob"), states))
     scale = Decimal(1) / prob_sum
     new_states = [replace(state, prob=state.prob * scale) for state in states]

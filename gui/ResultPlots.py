@@ -23,6 +23,10 @@ def show_plots(show: Tuple[str], hide: Tuple[str]):
 
 
 def skip_plot(result: stats.Result) -> bool:
+    """Determine if a given analysis result should be plotted. Plot is skipped if
+    There is only one value and it is zero, indicating it didn't happen, and it is not
+    configured to show anyway.
+    """
     return (
         result.sources["All"].average == 0
         and len(result.sources["All"].totals) < 2
@@ -37,11 +41,12 @@ def graph_results(window: int, all_tests: Mapping[str, test], selected: List[str
     test_combos = [
         add_combo(items=[""] + list(all_tests), width=TRAIT_LIST_WIDTH)
         for _ in range(3)
-    ]
-    for idx, name in enumerate(selected[:3]):
+    ]  # Create test selector dropdowns
+    for idx, name in enumerate(selected[:3]):  # Select last three tests
         set_value(test_combos[idx], name)
 
     def test_combo_cb():
+        """On test selector change, redraw window with new selected tests"""
         nonlocal test_combos, window, all_tests
         new_selected = [x for x in [get_value(combo) for combo in test_combos] if x]
         graph_results(window, all_tests, new_selected)
@@ -56,6 +61,7 @@ def graph_results(window: int, all_tests: Mapping[str, test], selected: List[str
     #     for res in chain.from_iterable(test.values() for test in tests.values())
     # )
     cols = 10
+    # Create grid of cells for graph plots
     with table(
         header_row=False,
         resizable=False,
@@ -81,8 +87,10 @@ def graph_results(window: int, all_tests: Mapping[str, test], selected: List[str
             # skip missing
             if all(skip_plot(test[analysis]) for test in tests.values()):
                 continue
+            # Create and render a row of plots and get IDs for each created plot.
             base_plots, normal_plots, min_plots = plot_result(tests, analysis)
 
+            # Create click handlers for plots
             base_handler = add_item_handler_registry()
             normal_handler = add_item_handler_registry()
             min_handler = add_item_handler_registry()
@@ -97,6 +105,7 @@ def graph_results(window: int, all_tests: Mapping[str, test], selected: List[str
                 show = base_plots
                 hide = tuple()
 
+            # Configure click handlers to cycle to next plot type
             add_item_clicked_handler(
                 parent=base_handler,
                 callback=show_plots(show, hide),
@@ -131,6 +140,8 @@ def graph_results(window: int, all_tests: Mapping[str, test], selected: List[str
 
 
 def plot_result(tests: Mapping[str, test], analysis: str) -> Tuple[Tuple[int]]:
+    """Create labels and plots for all sources from one analysis in a single row.
+    Returns plot IDs from each source and plot type."""
     base_label = f"{analysis}"
     normal_label = f"WHEN {analysis} > 0"
     min_label = f"{analysis} AT LEAST X:"
@@ -160,7 +171,7 @@ def plot_result(tests: Mapping[str, test], analysis: str) -> Tuple[Tuple[int]]:
 
             groups.append(
                 make_plot_group(results, (base_label, normal_label, min_label))
-            )
+            )  # Make and add standard, normalized, and min plots for this source
 
     # transpose and return list of groups
     return tuple(tuple(p for p in g if p is not None) for g in zip(*groups))
@@ -169,6 +180,8 @@ def plot_result(tests: Mapping[str, test], analysis: str) -> Tuple[Tuple[int]]:
 def make_plot_group(
     results: Mapping[str, stats.SourceResult], labels: Tuple[str]
 ) -> Tuple[int]:
+    """Make and render the bar plots for a single analysis and source.
+    Returns tuple of IDs."""
     base_label, normal_label, min_label = labels
     datatype = list(results.values())[0].type
     with table_cell():
@@ -235,6 +248,7 @@ def bar_plot(
     datatype: stats.AnalysisType,
     show_average: bool = True,
 ) -> int:
+    """Render and return ID of a dearpyGUI bar plot showing one or more test results."""
     plot = add_plot(
         label=label,
         height=height,
@@ -246,6 +260,7 @@ def bar_plot(
     data_x = [x if x else [0.0] for x in data_x]
     data_y = [y if y else [1.0] for y in data_y]
 
+    # Zoom plot to keep bars legible
     x_min = min(chain.from_iterable(data_x)) - 0.8
     x_max = max(chain.from_iterable(data_x)) + 0.8
     y_max = max(chain.from_iterable(data_y)) * 1.2

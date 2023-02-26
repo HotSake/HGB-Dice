@@ -1,3 +1,6 @@
+"""Create and render the GUI for an opposed roll.
+"""
+
 import traceback
 from decimal import Decimal
 from functools import partial
@@ -588,6 +591,10 @@ def make_opp_window():
 
 
 def make_scenario() -> hgb.Scenario:
+    """Create attacker and defender entities with all their components, then bundle
+    them into a Scenario ready for evaluation.
+
+    Perform final validation of selected traits and options from the GUI."""
     att_specials = [
         {
             "name": "Speed",
@@ -623,6 +630,7 @@ def make_scenario() -> hgb.Scenario:
     if get_value("att_AE_secondary"):
         wpn_specials.append({"name": "AESecondary"})
 
+    # Only one weapon can be used in an Attack, so just give its traits to the Attacker.
     attacker = hgb.make_model(
         role=hgb.Roles.Attacker,
         weapon_components=wd.make_weapon_components(wpn_traits + wpn_specials),
@@ -665,6 +673,10 @@ def make_scenario() -> hgb.Scenario:
 
 
 def update_test() -> bool:
+    """Parse rules for scenario as currently configured to get info on rolls.
+
+    If there's a bug in a Component, this is generally the first place it'll show."""
+
     try:
         test = make_scenario()
         rolls = test.describe_rolls()
@@ -676,9 +688,14 @@ def update_test() -> bool:
 
 
 def run_test():
+    """Create and evaluate a scenario according to the current configuration,
+    then display the result graphs."""
+
     try:
+        # First, get the final States from evaluating the Scenario.
         test_outcomes = list(sorted(make_scenario().evaluate(), key=attrgetter("prob")))
 
+        # Run all analyses and bundle the results into a new named test
         test = {
             name: stats.do_analysis(test_outcomes, analysis)
             for name, analysis in stats.analyses.items()
@@ -689,10 +706,11 @@ def run_test():
         num_tests += 1
         test_name = get_value("test_name")
         if not test_name:
-            test_name = f"Test {num_tests:g}"
+            test_name = f"Test {num_tests:g}"  # Default test name
         set_value("test_name", f"Test {num_tests + 1:g}")
         tests[test_name] = test
 
+        # Graph all the analyses for the last 3 tests and render the window.
         graph_results(
             window=OPP_PLOTS_WINDOW,
             all_tests=tests,
@@ -705,4 +723,5 @@ def run_test():
 
 
 def print_test(test: test):
+    """Print a text dump of a completed test to the terminal."""
     print("\n-----\n".join(str(res) for res in test.values()))

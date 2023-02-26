@@ -28,6 +28,8 @@ from .HGBRules import (
 
 
 class APComponent(Component):
+    """Alternate damage calculation based on MoS against high Armor defenders"""
+
     def __init__(self, value: int) -> None:
         super().__init__()
         self._value = value
@@ -44,6 +46,7 @@ class APComponent(Component):
         ap_damage = min(self._value, mos)
         if ap_damage == Decimal(0):
             ap_damage = Decimal(1)
+        # Only credit AP if it actually adds damage that wouldn't be done otherwise.
         if ap_damage > attack_damage:
             ap_damage -= attack_damage
             eff = Effect(name=AttackEffects.AttackDamage, source="AP", value=ap_damage)
@@ -53,6 +56,8 @@ class APComponent(Component):
 
 
 class AntiAirComponent(Component):
+    """Extra die if shooting at Aircraft"""
+
     def __init__(self) -> None:
         super().__init__()
         self._behaviors[RollTimeSteps.GATHER_DICE] = self._AA
@@ -65,6 +70,8 @@ class AntiAirComponent(Component):
 
 
 class BlastComponent(Component):
+    """Ignore partial cover on indirect fire."""
+
     def __init__(self) -> None:
         super().__init__()
         self._behaviors[RollTimeSteps.CHECK_COVER] = self._blast
@@ -73,6 +80,7 @@ class BlastComponent(Component):
         if state.get_effects(name=AttackMethods.Indirect) and state.get_effects(
             name=CoverAmount.Partial
         ):
+            # Define a filter to remove the CoverAmount and CoverStrength effects.
             state = state.remove_by_filter(
                 lambda e: e.name in [CoverAmount.Partial] + list(CoverStrength)
             )
@@ -80,6 +88,8 @@ class BlastComponent(Component):
 
 
 class BrawlComponent(Component):
+    """Bonus dice in melee if attacking."""
+
     def __init__(self, value: int) -> None:
         super().__init__()
         self._value = Decimal(value)
@@ -94,6 +104,8 @@ class BrawlComponent(Component):
 
 
 class HaywireComponent(Component):
+    """Guaranteed status effect, probabilistic damage"""
+
     def __init__(self) -> None:
         super().__init__()
         self._behaviors[ResolveTimeSteps.ADD_EXTRA_EFFECTS] = self._add_haywire
@@ -102,6 +114,7 @@ class HaywireComponent(Component):
         ] = self._apply_haywire_damage
 
     def _add_haywire(self, state: State) -> FrozenSet(State):
+        """Add status effect and pending damage to non-destroyed defender."""
         if state.get_effects(name=RuleEffects.Miss) or state.get_effects(
             name=StatusEffects.Destroyed
         ):
@@ -141,6 +154,8 @@ class HaywireComponent(Component):
 
 
 class FireComponent(Component):
+    """Guaranteed status effect, probabilistic damage"""
+
     def __init__(self, value: int) -> None:
         super().__init__()
         self._value = value
@@ -148,6 +163,7 @@ class FireComponent(Component):
         self._behaviors[ResolveTimeSteps.APPLY_EXTRA_DAMAGE] = self._apply_fire_damage
 
     def _add_fire(self, state: State) -> FrozenSet(State):
+        """Add status effect and pending damage to non-destroyed defender."""
         if state.get_effects(name=RuleEffects.Miss) or state.get_effects(
             name=StatusEffects.Destroyed
         ):
@@ -186,12 +202,15 @@ class FireComponent(Component):
 
 
 class CorrosionComponent(Component):
+    """Guaranteed status effect, probabilistic damage"""
+
     def __init__(self) -> None:
         super().__init__()
         self._behaviors[ResolveTimeSteps.ADD_EXTRA_EFFECTS] = self._add_corrosion
         self._behaviors[ResolveTimeSteps.END_OF_ROUND] = self._apply_corrosion_damage
 
     def _add_corrosion(self, state: State) -> FrozenSet(State):
+        """Add status effect and pending damage to non-destroyed defender."""
         if state.get_effects(name=RuleEffects.Miss) or state.get_effects(
             name=StatusEffects.Destroyed
         ):
@@ -233,6 +252,8 @@ class CorrosionComponent(Component):
 
 
 class AdvancedComponent(Component):
+    """Add +1 result at optimal range"""
+
     def __init__(self) -> None:
         super().__init__()
         self._behaviors[RollTimeSteps.GATHER_RESULT_BONUSES] = self._add_result
@@ -246,6 +267,8 @@ class AdvancedComponent(Component):
 
 
 class GuidedComponent(Component):
+    """Add a die if a Fire Mission with TD is active."""
+
     def __init__(self) -> None:
         super().__init__()
         self._behaviors[RollTimeSteps.GATHER_DICE] = self._dice_mod
@@ -261,6 +284,9 @@ class GuidedComponent(Component):
 
 
 class RangeComponent(Component):
+    """Apply dice mod to ranged attacks if necessary. Add range effect to trigger
+    other components' behaviors."""
+
     def __init__(self, range: Ranges) -> None:
         super().__init__()
         self._range = range
@@ -286,6 +312,9 @@ class RangeComponent(Component):
 
 
 class MethodComponent(Component):
+    """Apply dice mod to ranged attacks based on method. Add method effect to trigger
+    other components' behaviors."""
+
     def __init__(self, method: AttackMethods) -> None:
         super().__init__()
         self._method = method
